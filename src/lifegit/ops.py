@@ -5,13 +5,27 @@ from __future__ import annotations
 import hashlib
 import json
 import random
+import re
 from datetime import date
 
 from lifegit import rules
 from lifegit.i18n import DEFAULT_LANG, Lang
-from lifegit.models import Commit, Meta, Option, Repo, State, Tag
+from lifegit.models import Branch, Commit, Meta, Option, Repo, State, Tag
 from lifegit.narrator import NarratorContext, OptionDraft
 from lifegit.params import Params
+
+# Unicode word chars are allowed so branch names like "如果当初" work.
+BRANCH_NAME_RE = re.compile(r"^(?!-)[\w./-]{1,40}$")
+MIN_PREFIX = 4
+
+
+class OpError(Exception):
+    """A user-facing error. `key` is an i18n message key, `kwargs` its arguments."""
+
+    def __init__(self, key: str, **kwargs: object) -> None:
+        super().__init__(key, kwargs)
+        self.key = key
+        self.kwargs = kwargs
 
 
 def new_repo(name: str, params: Params, today: date, lang: Lang = DEFAULT_LANG) -> Repo:
@@ -50,6 +64,55 @@ def history(repo: Repo, limit: int | None = None) -> list[Commit]:
         out.append(c)
         c = repo.get_commit(c.parent) if c.parent else None
     return out
+
+
+def commits_newest_first(repo: Repo) -> list[Commit]:
+    """All commits in a valid topological order: a parent's day is always smaller
+    than its child's, so sorting by day works; ties go to the later-created commit."""
+    order = {c.id: i for i, c in enumerate(repo.commits)}
+    return sorted(repo.commits, key=lambda c: (c.day, order[c.id]), reverse=True)
+
+
+def branch_labels(repo: Repo) -> dict[str, list[str]]:
+    """commit id -> names of branches whose head is that commit (current branch first)."""
+    labels: dict[str, list[str]] = {}
+    for name in sorted(repo.branches, key=lambda n: n != repo.current_branch):
+        head_id = repo.branches[name].head
+        if head_id:
+            labels.setdefault(head_id, []).append(name)
+    return labels
+
+
+def resolve_ref(repo: Repo, ref: str) -> str | None:
+    """Resolve a branch name or a (prefix of a) commit id to a commit id.
+    Returns None for a branch with no commits yet."""
+    if ref in repo.branches:
+        return repo.branches[ref].head
+    if len(ref) >= MIN_PREFIX:
+        matches = [c.id for c in repo.commits if c.id.startswith(ref.lower())]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            raise OpError("err.ref_ambiguous", ref=ref, matches=", ".join(matches))
+    raise OpError("err.ref_unknown", ref=ref)
+
+
+def create_branch(repo: Repo, name: str, ref: str | None = None) -> Branch:
+    """Create a branch at `ref` (default: current HEAD). Does not switch to it."""
+    if not BRANCH_NAME_RE.match(name):
+        raise OpError("err.branch_name", name=name)
+    if name in repo.branches:
+        raise OpError("err.branch_exists", name=name)
+    at = resolve_ref(repo, ref) if ref is not None else repo.branches[repo.current_branch].head
+    branch = Branch(head=at, created_from=at)
+    repo.branches[name] = branch
+    return branch
+
+
+def checkout(repo: Repo, name: str) -> None:
+    if name not in repo.branches:
+        raise OpError("err.branch_unknown", name=name)
+    repo.current_branch = name
 
 
 def narrator_context(repo: Repo, params: Params, recent: int = 5) -> NarratorContext:

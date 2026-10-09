@@ -6,6 +6,6 @@ dist/
 build/
 .pytest_cache/
 .env
-# 用户自己的人生仓库，不提交
+# your own life repo - never commit it
 life.json
 .DS_Store

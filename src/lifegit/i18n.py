@@ -34,6 +34,26 @@ MESSAGES: dict[str, dict[Lang, str]] = {
         "zh": "{path} 不存在，先运行 `life init`",
     },
     "err.corrupt": {"en": "{path} is malformed:\n{detail}", "zh": "{path} 格式有误：\n{detail}"},
+    "err.ref_unknown": {"en": "unknown branch or commit: {ref}", "zh": "找不到分支或 commit：{ref}"},
+    "err.ref_ambiguous": {"en": "{ref} is ambiguous: {matches}", "zh": "{ref} 有歧义，可能是：{matches}"},
+    "err.branch_name": {
+        "en": "invalid branch name {name!r} (letters, digits, . _ / - only)",
+        "zh": "分支名 {name!r} 不合法（只能包含文字、数字和 . _ / -）",
+    },
+    "err.branch_exists": {"en": "branch {name!r} already exists", "zh": "分支 {name!r} 已存在"},
+    "err.branch_unknown": {"en": "no branch named {name!r}", "zh": "没有名为 {name!r} 的分支"},
+    "branch.created": {
+        "en": "Created branch [bold cyan]{name}[/] at {at}",
+        "zh": "已在 {at} 创建分支 [bold cyan]{name}[/]",
+    },
+    "branch.root": {"en": "the very beginning", "zh": "人生起点"},
+    "branch.from": {"en": "forked from {at}", "zh": "分叉自 {at}"},
+    "checkout.done": {"en": "Switched to branch [bold cyan]{name}[/]", "zh": "已切换到分支 [bold cyan]{name}[/]"},
+    "checkout.already": {"en": "Already on {name}", "zh": "已经在分支 {name} 上"},
+    "checkout.rewind": {
+        "en": "⏪ Time rewinds to the end of Day {day}. Your next commit is Day {next}.",
+        "zh": "⏪ 时间倒流回 Day {day} 结束时，下一次 commit 是 Day {next}。",
+    },
     "init.exists": {"en": "{path} already exists", "zh": "{path} 已存在"},
     "init.done": {
         "en": "Initialized empty life repository in [bold]{path}[/]",

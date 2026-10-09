@@ -19,6 +19,9 @@ life init              # English（默认）
 life commit            # 面对一个决定，做出选择
 life log               # 查看历史，包括没选的"幽灵"选项
 life status            # 当前状态和活跃标签
+life checkout -b 如果当初 <commit>  # 回到过去任意一天，换一条路走
+life log --graph       # 所有时间线，git 风格
+life branch            # 列出你的平行人生
 ```
 
 ## 开发

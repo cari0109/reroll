@@ -10,11 +10,12 @@ from typing import Optional
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
-from lifegit import ops
+from lifegit import graph, ops
 from lifegit.i18n import DEFAULT_LANG, LANGS, Lang, t
 from lifegit.models import STAT_NAMES, Commit, Repo, State, Tag
 from lifegit.narrator import MockNarrator, format_effects
@@ -25,6 +26,7 @@ app = typer.Typer(help="LifeGit: git log --graph, but for your life. For enterta
 console = Console()
 
 RISK_STYLE = {"low": "green", "medium": "yellow", "high": "bold red"}
+LANE_COLORS = ["yellow", "magenta", "cyan", "green", "blue", "red"]
 
 LangOption = Enum("LangOption", {lang: lang for lang in LANGS}, type=str)
 
@@ -40,6 +42,11 @@ def _fail(message: str, lang: Lang) -> typer.Exit:
     return typer.Exit(1)
 
 
+def _op_fail(e: ops.OpError, lang: Lang) -> typer.Exit:
+    kwargs = {k: escape(v) if isinstance(v, str) else v for k, v in e.kwargs.items()}
+    return _fail(t(e.key, lang, **kwargs), lang)
+
+
 @app.callback()
 def main(
     ctx: typer.Context,
@@ -53,9 +60,9 @@ def _load(ctx: typer.Context) -> Repo:
     try:
         return load_repo(ctx.obj)
     except RepoNotFound as e:
-        raise _fail(t("err.not_found", lang, path=e.path), lang)
+        raise _fail(t("err.not_found", lang, path=escape(str(e.path))), lang)
     except RepoCorrupt as e:
-        raise _fail(t("err.corrupt", lang, path=e.path, detail=e.detail), lang)
+        raise _fail(t("err.corrupt", lang, path=escape(str(e.path)), detail=escape(e.detail)), lang)
 
 
 # ---------------------------------------------------------------- rendering
@@ -102,19 +109,46 @@ def _gutter(markup: str) -> None:
         console.print(prefix + line)
 
 
+def _labels(repo: Repo, commit_id: str, refs: dict[str, list[str]]) -> str:
+    """git-style ref decoration, e.g. ` (HEAD -> what-if, main)`."""
+    names = refs.get(commit_id)
+    if not names:
+        return ""
+    parts = [
+        f"[bold cyan]HEAD -> {escape(n)}[/]" if n == repo.current_branch else f"[bold green]{escape(n)}[/]" for n in names
+    ]
+    return " (" + ", ".join(parts) + ")"
+
+
+def _describe_commit(repo: Repo, commit_id: str | None, lang: Lang) -> str:
+    if commit_id is None:
+        return t("branch.root", lang)
+    c = repo.get_commit(commit_id)
+    return f"[yellow]{c.id}[/] (Day {c.day} · {escape(c.decision)})"
+
+
+def _color_prefix(prefix: str) -> Text:
+    """Color each graph lane consistently; lane i lives at character column 2*i."""
+    text = Text()
+    for i, ch in enumerate(prefix):
+        style = "bold" if ch == "*" else LANE_COLORS[(i // 2) % len(LANE_COLORS)]
+        text.append(ch, style=style)
+    return text
+
+
 def _render_commit(c: Commit, labels: str, lang: Lang) -> None:
     console.print(
-        f"[yellow]*[/] [yellow]{c.id}[/]{labels} [bold]Day {c.day}[/]  {c.decision}  "
+        f"[yellow]*[/] [yellow]{c.id}[/]{labels} [bold]Day {c.day}[/]  {escape(c.decision)}  "
         f"[{RISK_STYLE[c.risk]}]\\[{c.risk}][/]"
     )
     for o in c.options:
         effects = format_effects(o.effects, lang)
         if o.id == c.chosen:
-            _gutter(f"[green]●[/] {o.label}  [dim]{effects}[/]")
+            _gutter(f"[green]●[/] {escape(o.label)}  [dim]{effects}[/]")
         else:
-            _gutter(f"[dim]○ {o.label}  {effects}  ({t('log.ghost', lang)})[/]")
+            _gutter(f"[dim]○ {escape(o.label)}  {effects}  ({t('log.ghost', lang)})[/]")
     if c.narration:
-        _gutter(f"[italic]🎙  {c.narration}[/]")
+        _gutter(f"[italic]🎙  {escape(c.narration)}[/]")
     _gutter("")
 
 
@@ -131,9 +165,9 @@ def init(
     path: Path = ctx.obj
     code: Lang = lang.value
     if path.exists():
-        raise _fail(t("init.exists", code, path=path), code)
+        raise _fail(t("init.exists", code, path=escape(str(path))), code)
     save_repo(ops.new_repo(name, default_params(), date.today(), code), path)
-    console.print(t("init.done", code, path=path))
+    console.print(t("init.done", code, path=escape(str(path))))
     console.print(f"[dim]{t('disclaimer', code)}[/]")
 
 
@@ -164,9 +198,9 @@ def commit(
     proposal = narrator.propose(ctx_before, decision)
     options = ops.build_options(proposal.options, params, ops.rng_for(repo, proposal.decision))
 
-    console.print(f"[bold]Day {ctx_before.day}[/] · {proposal.decision}\n")
+    console.print(f"[bold]Day {ctx_before.day}[/] · {escape(proposal.decision)}\n")
     for o in options:
-        console.print(f"  [cyan]{o.id}[/]) {o.label}  [dim]{ctx_before.actions[o.action]}[/]")
+        console.print(f"  [cyan]{o.id}[/]) {escape(o.label)}  [dim]{ctx_before.actions[o.action]}[/]")
     ids = [o.id for o in options]
     if choose is None:
         choose = Prompt.ask("\n" + t("commit.prompt", lang), choices=ids, console=console)
@@ -179,27 +213,126 @@ def commit(
     save_repo(repo, ctx.obj)
 
     console.print(
-        f"\n[yellow]\\[{repo.current_branch} {c.id}][/] {c.chosen_option.label}  "
+        f"\n[yellow]\\[{repo.current_branch} {c.id}][/] {escape(c.chosen_option.label)}  "
         f"{t('commit.risk', lang)}: [{RISK_STYLE[c.risk]}]{c.risk}[/]\n"
     )
     console.print(_state_table(c.state_after, lang, before))
-    console.print(f"\n🎙  {c.narration}")
+    console.print(Text("\n🎙  " + c.narration))
 
 
 @app.command()
-def log(ctx: typer.Context, limit: Optional[int] = typer.Option(None, "--limit", "-n", help="Max commits to show.")) -> None:
-    """Show the current branch's history, including ghost options you didn't take."""
+def log(
+    ctx: typer.Context,
+    limit: Optional[int] = typer.Option(None, "--limit", "-n", help="Max commits to show."),
+    show_graph: bool = typer.Option(False, "--graph", "-g", help="One line per commit, all branches, as a graph."),
+) -> None:
+    """Show history. Default: the current branch in detail, including ghost options you didn't take."""
     repo = _load(ctx)
     lang = repo.meta.lang
+    refs = ops.branch_labels(repo)
+
+    if show_graph:
+        rows = graph.layout(ops.commits_newest_first(repo))
+        if not rows:
+            console.print(f"[dim]{t('log.empty', lang, branch=repo.current_branch)}[/]")
+            return
+        shown = 0
+        for row in rows:
+            if row.commit is None:
+                console.print(_color_prefix(row.prefix))
+                continue
+            if limit is not None and shown >= limit:
+                break
+            c = row.commit
+            line = _color_prefix(row.prefix) + Text.from_markup(
+                f" [yellow]{c.id}[/]{_labels(repo, c.id, refs)} Day {c.day} "
+                f"[{RISK_STYLE[c.risk]}]\\[{c.risk}][/] [bold]{escape(c.chosen_option.label)}[/]"
+                f"  [dim]{escape(c.decision)}[/]"
+            )
+            console.print(line, no_wrap=True, overflow="ellipsis")  # wrapping would break the graph
+            shown += 1
+        else:
+            console.print(f"[yellow]○[/] [dim]{t('log.root', lang)}[/]")
+        return
+
     commits = ops.history(repo, limit)
     if not commits:
         console.print(f"[dim]{t('log.empty', lang, branch=repo.current_branch)}[/]")
         return
-    for i, c in enumerate(commits):
-        labels = f" ([bold cyan]HEAD -> {repo.current_branch}[/])" if i == 0 else ""
-        _render_commit(c, labels, lang)
+    for c in commits:
+        _render_commit(c, _labels(repo, c.id, refs), lang)
     if commits[-1].parent is None:
         console.print(f"[yellow]○[/] [dim]{t('log.root', lang)}[/]")
+
+
+@app.command()
+def branch(
+    ctx: typer.Context,
+    name: Optional[str] = typer.Argument(None, help="Name of the new branch; omit to list branches."),
+    start: Optional[str] = typer.Argument(None, help="Branch or commit id to fork from (default: HEAD)."),
+) -> None:
+    """List branches, or create one at any point in your history."""
+    repo = _load(ctx)
+    lang = repo.meta.lang
+
+    if name is None:
+        table = Table.grid(padding=(0, 2))
+        for n, b in repo.branches.items():
+            mark = "[bold cyan]*[/]" if n == repo.current_branch else " "
+            style = "bold cyan" if n == repo.current_branch else ""
+            tip = repo.get_commit(b.head) if b.head else None
+            fork = (
+                f"[dim]{t('branch.from', lang, at=b.created_from or t('branch.root', lang))}[/]"
+                if n != "main"
+                else ""
+            )
+            table.add_row(
+                mark,
+                Text(n, style=style),
+                f"[yellow]{tip.id}[/]  Day {tip.day}" if tip else "[dim]-[/]",
+                fork,
+            )
+        console.print(table)
+        return
+
+    try:
+        b = ops.create_branch(repo, name, start)
+    except ops.OpError as e:
+        raise _op_fail(e, lang)
+    save_repo(repo, ctx.obj)
+    console.print(t("branch.created", lang, name=escape(name), at=_describe_commit(repo, b.head, lang)))
+
+
+@app.command()
+def checkout(
+    ctx: typer.Context,
+    name: str = typer.Argument(..., help="Branch to switch to."),
+    start: Optional[str] = typer.Argument(None, help="With -b: branch or commit id to fork from (default: HEAD)."),
+    new: bool = typer.Option(False, "-b", help="Create the branch first, then switch to it."),
+) -> None:
+    """Switch branches. `life checkout -b what-if <commit>` rewinds time to that commit."""
+    repo = _load(ctx)
+    lang = repo.meta.lang
+    if start is not None and not new:
+        raise typer.BadParameter("START is only allowed together with -b")
+    if not new and name == repo.current_branch:
+        console.print(t("checkout.already", lang, name=escape(name)))
+        return
+
+    old_head = repo.branches[repo.current_branch].head
+    try:
+        if new:
+            ops.create_branch(repo, name, start)
+        ops.checkout(repo, name)
+    except ops.OpError as e:
+        raise _op_fail(e, lang)
+    save_repo(repo, ctx.obj)
+
+    console.print(t("checkout.done", lang, name=escape(name)))
+    h = ops.head(repo)
+    if new and (h.id if h else None) != old_head:
+        day = h.day if h else 0
+        console.print(t("checkout.rewind", lang, day=day, next=day + 1))
 
 
 if __name__ == "__main__":
