@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.env
+# 用户自己的人生仓库，不提交
+life.json
+.DS_Store

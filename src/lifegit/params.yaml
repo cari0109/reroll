@@ -1,0 +1,60 @@
+# LifeGit parameters
+#
+# Every number here is an ASSUMPTION for entertainment purposes and is not based
+# on any research. If a parameter ever gets a real basis, cite it in `source`.
+
+# Range and per-commit max change for each stat
+# (copied into life.json's state_schema on `life init`).
+stats:
+  energy: { min: 0, max: 100, max_delta: 15 }
+  mood:   { min: 0, max: 100, max_delta: 15 }
+  money:  { min: 0, max: 100, max_delta: 15 }   # financial health, not an amount
+  social: { min: 0, max: 100, max_delta: 15 }
+  goal:   { min: 0, max: 100, max_delta: 10 }
+
+initial_state: { energy: 70, mood: 60, money: 50, social: 50, goal: 10 }
+
+# Action table: the narrator may only pick an action from here. The numeric
+# effect is rolled by code within [lo, hi].
+# tags: history tags attached after taking the action; duration is in days.
+actions:
+  exercise:
+    description: { en: "Work out, go to the gym, take a walk", zh: "运动、健身、散步" }
+    effects: { energy: [-8, -3], mood: [2, 6], goal: [1, 3] }
+    tags: [{ name: exercised, duration: 3 }]
+    source: assumption
+  overtime:
+    description: { en: "Work overtime, extra work", zh: "加班、额外工作" }
+    effects: { energy: [-12, -6], money: [3, 8], mood: [-5, -1] }
+    tags: [{ name: overtime, duration: 2 }]
+    source: assumption
+  stay_up:
+    description: { en: "Stay up late (scrolling, bingeing, gaming)", zh: "熬夜（刷手机、追剧、打游戏）" }
+    effects: { energy: [-12, -5], mood: [1, 5] }
+    tags: [{ name: late_night, duration: 3 }]
+    source: assumption
+  socialize:
+    description: { en: "Hang out with friends, go out to eat", zh: "和朋友聚会、约饭" }
+    effects: { social: [4, 10], mood: [2, 6], money: [-5, -1], energy: [-5, -1] }
+    tags: [{ name: socialized, duration: 4 }]
+    source: assumption
+  save_money:
+    description: { en: "Save money, cook at home, buy nothing", zh: "省钱、做饭、不买东西" }
+    effects: { money: [2, 6], mood: [-3, 0] }
+    tags: [{ name: frugal, duration: 3 }]
+    source: assumption
+  impulse_buy:
+    description: { en: "Impulse purchase", zh: "冲动消费" }
+    effects: { money: [-10, -3], mood: [3, 8] }
+    tags: [{ name: impulse_spent, duration: 5 }]
+    source: assumption
+  study:
+    description: { en: "Study, read, work on a side project", zh: "学习、读书、做自己的项目" }
+    effects: { goal: [2, 6], energy: [-6, -2], mood: [-2, 3] }
+    tags: [{ name: studied, duration: 3 }]
+    source: assumption
+  rest:
+    description: { en: "Sleep early, rest, do nothing", zh: "早睡、休息、躺平" }
+    effects: { energy: [5, 12], mood: [0, 4], goal: [-2, 0] }
+    tags: [{ name: rested, duration: 2 }]
+    source: assumption
