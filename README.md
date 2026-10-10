@@ -24,6 +24,7 @@ life checkout -b what-if <commit>   # rewind to any past day and try another pat
 life whatif <commit>   # what if you'd picked the other option back then?
 life log --graph       # every timeline, git-style
 life branch            # list your parallel lives
+life serve             # open the Observatory web UI in your browser
 ```
 
 ## AI narrator (optional)

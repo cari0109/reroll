@@ -24,6 +24,7 @@ life checkout -b 如果当初 <commit>  # 回到过去任意一天，换一条�
 life whatif <commit>   # 如果当初选了另一个呢？
 life log --graph       # 所有时间线，git 风格
 life branch            # 列出你的平行人生
+life serve             # 在浏览器里打开观测台网页
 ```
 
 ## AI 解说员（可选）

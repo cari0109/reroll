@@ -43,6 +43,7 @@ class Forecast:
     bands: dict[StatName, list[Band]]  # bands[stat][i] is the stat at the end of start_day + i
     danger_prob: float
     risk: Risk
+    paths: dict[StatName, list[list[int]]] | None = None  # paths[stat][run][i], only with keep_paths
 
     @property
     def days(self) -> int:
@@ -67,11 +68,19 @@ def action_weights(state: State, tags: list[Tag], history: Counter[str], params:
 
 
 def simulate_day(
-    state: State, tags: list[Tag], day: int, history: Counter[str], params: Params, rng: random.Random
+    state: State,
+    tags: list[Tag],
+    day: int,
+    history: Counter[str],
+    params: Params,
+    rng: random.Random,
+    action_name: str | None = None,
 ) -> tuple[State, list[Tag]]:
+    """One simulated day. `action_name` forces the action; otherwise it is drawn from the habit weights."""
     state, tags, _ = rules.start_day(state, tags, day, params, params.stats)
-    weights = action_weights(state, tags, history, params)
-    action_name = rng.choices(list(weights), weights=list(weights.values()))[0]
+    if action_name is None:
+        weights = action_weights(state, tags, history, params)
+        action_name = rng.choices(list(weights), weights=list(weights.values()))[0]
     action = params.actions[action_name]
     state = rules.apply_effects(state, rules.roll_effects(action, rng), params.stats)
     return state, rules.update_tags(tags, action, day)
@@ -81,7 +90,9 @@ def _quantile(sorted_values: list[int], q: float) -> int:
     return sorted_values[round(q * (len(sorted_values) - 1))]
 
 
-def _seed(state: State, tags: list[Tag], day: int, history: Counter[str], days: int, runs: int) -> int:
+def _seed(
+    state: State, tags: list[Tag], day: int, history: Counter[str], days: int, runs: int, first_action: str | None
+) -> int:
     """Same situation -> same forecast. Lets whatif branches and tests agree."""
     key = json.dumps(
         {
@@ -91,6 +102,7 @@ def _seed(state: State, tags: list[Tag], day: int, history: Counter[str], days: 
             "history": sorted(history.items()),
             "days": days,
             "runs": runs,
+            "first_action": first_action,
         },
         sort_keys=True,
     )
@@ -105,11 +117,16 @@ def forecast(
     params: Params,
     days: int | None = None,
     runs: int | None = None,
+    first_action: str | None = None,
+    keep_paths: bool = False,
 ) -> Forecast:
+    """Simulate `runs` futures. With `first_action`, every run takes that action on the first day
+    (its effect is still rolled per run), which shows where a choice tends to lead without
+    revealing its actual outcome. `keep_paths` keeps every trajectory, for drawing."""
     sim = params.simulation
     days = days or sim.horizon
     runs = runs or sim.runs
-    rng = random.Random(_seed(state, tags, start_day, history, days, runs))
+    rng = random.Random(_seed(state, tags, start_day, history, days, runs, first_action))
 
     samples: dict[StatName, list[list[int]]] = {s: [[] for _ in range(days)] for s in STAT_NAMES}
     dangerous_runs = 0
@@ -117,7 +134,8 @@ def forecast(
         s, t = state, tags
         in_danger = min(getattr(s, k) for k in RISK_STATS) < sim.danger_below
         for i in range(days):
-            s, t = simulate_day(s, t, start_day + i, history, params, rng)
+            forced = first_action if i == 0 else None
+            s, t = simulate_day(s, t, start_day + i, history, params, rng, forced)
             for stat in STAT_NAMES:
                 samples[stat][i].append(getattr(s, stat))
             in_danger = in_danger or min(getattr(s, k) for k in RISK_STATS) < sim.danger_below
@@ -134,4 +152,6 @@ def forecast(
         risk = "medium"
     else:
         risk = "low"
-    return Forecast(start_day=start_day, runs=runs, bands=bands, danger_prob=danger_prob, risk=risk)
+    # samples[stat][day][run] -> paths[stat][run][day]
+    paths = {stat: [list(run) for run in zip(*per_day)] for stat, per_day in samples.items()} if keep_paths else None
+    return Forecast(start_day=start_day, runs=runs, bands=bands, danger_prob=danger_prob, risk=risk, paths=paths)

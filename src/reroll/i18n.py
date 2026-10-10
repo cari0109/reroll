@@ -81,6 +81,10 @@ MESSAGES: dict[str, dict[Lang, str]] = {
         "en": "│ now   █ median   ▒ middle 50%   ░ 80% of futures   sparkline: median day by day",
         "zh": "│ 现在   █ 中位数   ▒ 中间 50%   ░ 80% 的未来   小折线：每天的中位数",
     },
+    "serve.running": {
+        "en": "🔭 Observatory running at [bold]{url}[/]  (Ctrl+C to stop)",
+        "zh": "🔭 观测台已启动：[bold]{url}[/]（Ctrl+C 停止）",
+    },
     "init.exists": {"en": "{path} already exists", "zh": "{path} 已存在"},
     "init.done": {
         "en": "Initialized empty life repository in [bold]{path}[/]",

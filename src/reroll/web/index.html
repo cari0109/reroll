@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Reroll Observatory</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="stage" role="img" aria-label=""></canvas>
+
+  <div class="top">
+    <h1 class="wordmark">re<span>roll</span></h1>
+    <span class="branch" id="branch"></span>
+    <span class="spacer"></span>
+    <div class="seg" id="stats" role="group" aria-label="Stat"></div>
+    <button type="button" class="icon-btn" id="openDrawer" aria-controls="drawer" aria-expanded="false"></button>
+  </div>
+
+  <div class="bottom" id="bottom">
+    <p class="subtitle" id="subtitle" aria-live="polite"></p>
+    <p class="eyebrow"><span id="day"></span><span class="risk" id="risk"></span></p>
+    <h2 class="question" id="question"></h2>
+    <div class="options" id="options"></div>
+    <p class="fine" id="hint"></p>
+    <p class="legal" id="legal"></p>
+  </div>
+
+  <div class="tip" id="tip" role="status"></div>
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="drawer" aria-labelledby="drawerTitle">
+    <header><h2 id="drawerTitle"></h2><button type="button" class="icon-btn" id="closeDrawer"></button></header>
+    <section><h3 id="dRiskT"></h3><div id="dRisk"></div></section>
+    <section><h3 id="dBranchT"></h3><ul class="list" id="dBranches"></ul></section>
+    <section><h3 id="dRerollT"></h3><ul class="list" id="dReroll"></ul></section>
+    <section><h3 id="dTagsT"></h3><div class="chips" id="dTags"></div></section>
+    <section><h3 id="dTableT"></h3><div class="table-scroll"><table id="dTable"></table></div></section>
+    <section><p id="dNote"></p></section>
+  </aside>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <p class="loading" id="loading">…</p>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -450,6 +450,29 @@ def checkout(
         console.print(t("checkout.rewind", lang, day=day, next=day + 1))
 
 
+@app.command()
+def serve(
+    ctx: typer.Context,
+    host: str = typer.Option("127.0.0.1", help="Address to bind. Keep the default unless you know you need another."),
+    port: int = typer.Option(8000, help="Port to listen on."),
+    open_browser: bool = typer.Option(True, "--open/--no-open", help="Open the Observatory in your browser."),
+) -> None:
+    """Open the Observatory web UI for this life repository."""
+    import threading
+    import webbrowser
+
+    import uvicorn
+
+    from reroll.server import create_app
+
+    repo = _load(ctx)
+    url = f"http://{host}:{port}"
+    console.print(t("serve.running", repo.meta.lang, url=url))
+    if open_browser:
+        threading.Timer(1.0, webbrowser.open, args=(url,)).start()
+    uvicorn.run(create_app(ctx.obj), host=host, port=port, log_level="warning")
+
+
 BAND_WIDTH = 40
 SPARK = "▁▂▃▄▅▆▇█"
 

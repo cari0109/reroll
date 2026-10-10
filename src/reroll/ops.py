@@ -165,12 +165,41 @@ def action_history(repo: Repo) -> Counter[str]:
     return Counter(c.chosen_option.action for c in history(repo))
 
 
-def forecast(repo: Repo, params: Params, days: int | None = None) -> sim.Forecast:
-    """Simulate the futures that start after the current HEAD."""
+def forecast(
+    repo: Repo,
+    params: Params,
+    days: int | None = None,
+    *,
+    runs: int | None = None,
+    first_action: str | None = None,
+    keep_paths: bool = False,
+) -> sim.Forecast:
+    """Simulate the futures that start after the current HEAD (optionally: if you take `first_action` next)."""
     h = head(repo)
     return sim.forecast(
-        current_state(repo), h.tags_active if h else [], next_day(repo), action_history(repo), params, days
+        current_state(repo),
+        h.tags_active if h else [],
+        next_day(repo),
+        action_history(repo),
+        params,
+        days,
+        runs=runs,
+        first_action=first_action,
+        keep_paths=keep_paths,
     )
+
+
+def start_of_day_state(repo: Repo, c: Commit, params: Params) -> State:
+    """State at the start of `c`'s day, before the choice (after drift and tag aftershock)."""
+    parent = repo.get_commit(c.parent) if c.parent else None
+    state, _, _ = rules.start_day(
+        parent.state_after if parent else repo.initial_state,
+        parent.tags_active if parent else [],
+        c.day,
+        params,
+        repo.state_schema,
+    )
+    return state
 
 
 def narrator_context(repo: Repo, params: Params, recent: int = 5) -> NarratorContext:
