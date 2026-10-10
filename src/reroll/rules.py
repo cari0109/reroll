@@ -8,17 +8,10 @@ from __future__ import annotations
 
 import random
 
-from reroll.models import STAT_NAMES, Risk, StatBounds, StatName, State, Tag
-from reroll.params import ActionSpec
+from reroll.models import STAT_NAMES, StatBounds, StatName, State, Tag
+from reroll.params import ActionSpec, Params, TagEffects
 
 Schema = dict[StatName, StatBounds]
-
-# Risk thresholds: if any "survival" stat drops below a threshold, that risk
-# level applies (assumed values). `goal` is a progress stat - being low on it
-# isn't dangerous, so it's excluded.
-RISK_STATS: tuple[StatName, ...] = ("energy", "mood", "money", "social")
-HIGH_RISK_BELOW = 20
-MEDIUM_RISK_BELOW = 35
 
 
 def roll_effects(action: ActionSpec, rng: random.Random) -> dict[StatName, int]:
@@ -70,10 +63,26 @@ def update_tags(tags: list[Tag], action: ActionSpec, day: int) -> list[Tag]:
     return result
 
 
-def assess_risk(state: State) -> Risk:
-    lowest = min(getattr(state, s) for s in RISK_STATS)
-    if lowest < HIGH_RISK_BELOW:
-        return "high"
-    if lowest < MEDIUM_RISK_BELOW:
-        return "medium"
-    return "low"
+def carryover(tags: list[Tag], specs: dict[str, TagEffects]) -> dict[StatName, int]:
+    """Daily aftershock of active tags, scaled by each tag's count. Independent of today's choice."""
+    total: dict[StatName, int] = {}
+    for tag in tags:
+        for stat, delta in specs[tag.name].carryover.items():
+            total[stat] = total.get(stat, 0) + delta * tag.count
+    return {stat: v for stat, v in total.items() if v}
+
+
+def start_day(
+    state: State, tags: list[Tag], day: int, params: Params, schema: Schema
+) -> tuple[State, list[Tag], dict[StatName, int]]:
+    """Begin `day`: expire old tags, then apply the daily drift plus the aftershock of
+    the remaining tags. Returns the new state, the active tags, and the change applied.
+
+    Shared by real commits and the simulation so both follow the same physics.
+    """
+    active = expire_tags(tags, day)
+    change = dict(params.daily_drift)
+    for stat, delta in carryover(active, params.tags).items():
+        change[stat] = change.get(stat, 0) + delta
+    change = {k: v for k, v in clamp_effects(change, schema).items() if v}
+    return apply_effects(state, change, schema), active, change

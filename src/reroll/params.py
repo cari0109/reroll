@@ -33,10 +33,66 @@ class ActionSpec(BaseModel):
         return self
 
 
+Habit = dict[str, float]  # action name -> weight multiplier
+
+
+class TagEffects(BaseModel):
+    carryover: dict[StatName, int] = Field(default_factory=dict)
+    habit: Habit = Field(default_factory=dict)
+    source: str
+
+
+class LowStatRule(BaseModel):
+    stat: StatName
+    below: int
+    habit: Habit
+    source: str
+
+
+class RiskProb(BaseModel):
+    medium: float = Field(gt=0, lt=1)
+    high: float = Field(gt=0, lt=1)
+
+    @model_validator(mode="after")
+    def _check_order(self) -> RiskProb:
+        if self.medium >= self.high:
+            raise ValueError("risk_prob.medium must be < risk_prob.high")
+        return self
+
+
+class Simulation(BaseModel):
+    runs: int = Field(gt=0)
+    horizon: int = Field(gt=0)
+    base_weight: float = Field(gt=0)
+    history_weight: float = Field(ge=0)
+    danger_below: int
+    risk_prob: RiskProb
+    low_stat_rules: list[LowStatRule] = Field(default_factory=list)
+
+
 class Params(BaseModel):
     stats: dict[StatName, StatBounds]
     initial_state: State
     actions: dict[str, ActionSpec] = Field(min_length=1)
+    daily_drift: dict[StatName, int] = Field(default_factory=dict)
+    tags: dict[str, TagEffects]
+    simulation: Simulation
+
+    @model_validator(mode="after")
+    def _check_references(self) -> Params:
+        for name, action in self.actions.items():
+            for spec in action.tags:
+                if spec.name not in self.tags:
+                    raise ValueError(f"action {name!r} attaches tag {spec.name!r}, which is not in `tags`")
+        habits = [(f"tag {n!r}", t.habit) for n, t in self.tags.items()]
+        habits += [(f"low_stat_rule {r.stat}<{r.below}", r.habit) for r in self.simulation.low_stat_rules]
+        for where, habit in habits:
+            for action, factor in habit.items():
+                if action not in self.actions:
+                    raise ValueError(f"{where}: unknown action {action!r}")
+                if factor <= 0:
+                    raise ValueError(f"{where}: habit factor for {action!r} must be > 0")
+        return self
 
     @model_validator(mode="after")
     def _check_against_bounds(self) -> Params:

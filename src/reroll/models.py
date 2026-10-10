@@ -76,9 +76,11 @@ class Commit(BaseModel):
     options: list[Option] = Field(min_length=2, max_length=4)
     chosen: str
     state_after: State
+    carryover: dict[StatName, int] = Field(default_factory=dict, description="start-of-day change: daily drift + tag aftershock")
     tags_active: list[Tag] = Field(default_factory=list)
     narration: str = ""
     risk: Risk = "low"
+    danger_prob: float | None = Field(None, ge=0, le=1, description="forecast chance of hitting danger; drives risk")
 
     @model_validator(mode="after")
     def _check_chosen(self) -> Commit:

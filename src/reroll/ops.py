@@ -6,9 +6,10 @@ import hashlib
 import json
 import random
 import re
+from collections import Counter
 from datetime import date
 
-from reroll import rules
+from reroll import rules, sim
 from reroll.i18n import DEFAULT_LANG, Lang
 from reroll.models import Branch, Commit, Meta, Option, Repo, State, Tag
 from reroll.narrator import NarratorContext, OptionDraft
@@ -159,6 +160,19 @@ def fork_before(repo: Repo, target: Commit, name: str | None = None) -> str:
     return name
 
 
+def action_history(repo: Repo) -> Counter[str]:
+    """How often each action was chosen on the current branch: the player's habits."""
+    return Counter(c.chosen_option.action for c in history(repo))
+
+
+def forecast(repo: Repo, params: Params, days: int | None = None) -> sim.Forecast:
+    """Simulate the futures that start after the current HEAD."""
+    h = head(repo)
+    return sim.forecast(
+        current_state(repo), h.tags_active if h else [], next_day(repo), action_history(repo), params, days
+    )
+
+
 def narrator_context(repo: Repo, params: Params, recent: int = 5) -> NarratorContext:
     day = next_day(repo)
     lang = repo.meta.lang
@@ -212,8 +226,13 @@ def commit(repo: Repo, decision: str, options: list[Option], chosen: str, params
 
     h = head(repo)
     day = next_day(repo)
-    state_after = rules.apply_effects(current_state(repo), option.effects, repo.state_schema)
-    tags = rules.update_tags(h.tags_active if h else [], params.actions[option.action], day)
+    state, active, carry = rules.start_day(
+        current_state(repo), h.tags_active if h else [], day, params, repo.state_schema
+    )
+    state_after = rules.apply_effects(state, option.effects, repo.state_schema)
+    tags = rules.update_tags(active, params.actions[option.action], day)
+    habits = action_history(repo) + Counter([option.action])
+    outlook = sim.forecast(state_after, tags, day + 1, habits, params)
 
     payload = {
         "parent": h.id if h else None,
@@ -232,8 +251,10 @@ def commit(repo: Repo, decision: str, options: list[Option], chosen: str, params
         options=options,
         chosen=chosen,
         state_after=state_after,
+        carryover=carry,
         tags_active=tags,
-        risk=rules.assess_risk(state_after),
+        risk=outlook.risk,
+        danger_prob=outlook.danger_prob,
     )
     repo.commits.append(c)
     repo.branches[repo.current_branch].head = c.id

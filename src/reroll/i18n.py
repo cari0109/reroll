@@ -67,6 +67,20 @@ MESSAGES: dict[str, dict[Lang, str]] = {
         "en": "(narrator fell back to offline mode: {reason})",
         "zh": "（解说员已切换到离线模式：{reason}）",
     },
+    "day.start": {"en": "🌙 New day{tags}: {effects}", "zh": "🌙 新的一天{tags}：{effects}"},
+    "risk.detail": {
+        "en": "{pct}% chance that {stats} drops below {below} within {days} days",
+        "zh": "{days} 天内{stats}任一跌破 {below} 的概率：{pct}%",
+    },
+    "status.in_days": {"en": "in {days}d", "zh": "{days} 天后"},
+    "forecast.header": {
+        "en": "🔮 {runs} simulated futures, {days} days ahead (to Day {day})",
+        "zh": "🔮 模拟了 {runs} 个平行未来，看 {days} 天后（到 Day {day}）",
+    },
+    "forecast.legend": {
+        "en": "│ now   █ median   ▒ middle 50%   ░ 80% of futures   sparkline: median day by day",
+        "zh": "│ 现在   █ 中位数   ▒ 中间 50%   ░ 80% 的未来   小折线：每天的中位数",
+    },
     "init.exists": {"en": "{path} already exists", "zh": "{path} 已存在"},
     "init.done": {
         "en": "Initialized empty life repository in [bold]{path}[/]",

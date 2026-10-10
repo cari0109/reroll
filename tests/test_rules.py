@@ -60,8 +60,24 @@ def test_update_tags_expires_old_and_restarts():
     assert tags == [Tag(name="late_night", count=1, since_day=4, expires_day=7)]
 
 
-def test_assess_risk():
-    assert rules.assess_risk(make_state()) == "low"
-    assert rules.assess_risk(make_state(money=30)) == "medium"
-    assert rules.assess_risk(make_state(energy=10)) == "high"
-    assert rules.assess_risk(make_state(goal=0)) == "low"  # low progress isn't risky
+def test_carryover_scales_with_count():
+    specs = default_params().tags
+    tags = [Tag(name="late_night", count=2, since_day=1, expires_day=5), Tag(name="studied", since_day=1, expires_day=4)]
+    assert rules.carryover(tags, specs) == {"energy": -6, "goal": 1}
+
+
+def test_carryover_drops_zero_totals():
+    specs = default_params().tags
+    assert rules.carryover([Tag(name="frugal", since_day=1, expires_day=3)], specs) == {}
+
+
+def test_start_day_expires_before_applying_carryover():
+    tags = [
+        Tag(name="late_night", count=1, since_day=1, expires_day=3),  # expires on day 3
+        Tag(name="rested", count=1, since_day=2, expires_day=4),
+    ]
+    state, active, change = rules.start_day(make_state(), tags, day=3, params=default_params(), schema=SCHEMA)
+    assert [t.name for t in active] == ["rested"]
+    # daily drift (energy +3, mood -2, social -1) plus rested (energy +1)
+    assert change == {"energy": 4, "mood": -2, "social": -1}
+    assert (state.energy, state.mood, state.social) == (54, 48, 49)

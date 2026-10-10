@@ -15,7 +15,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
-from reroll import graph, ops
+from reroll import graph, ops, rules, sim
 from reroll.i18n import DEFAULT_LANG, LANGS, Lang, t
 from reroll.models import STAT_NAMES, Commit, Repo, State, Tag
 from reroll.claude_narrator import make_narrator
@@ -77,7 +77,9 @@ def _bar_style(value: int) -> str:
     return "green"
 
 
-def _state_table(state: State, lang: Lang, before: State | None = None) -> Table:
+def _state_table(
+    state: State, lang: Lang, before: State | None = None, outlook: sim.Forecast | None = None
+) -> Table:
     table = Table.grid(padding=(0, 2))
     for stat in STAT_NAMES:
         v = getattr(state, stat)
@@ -87,8 +89,34 @@ def _state_table(state: State, lang: Lang, before: State | None = None) -> Table
         if before is not None:
             d = v - getattr(before, stat)
             row.append(Text(f"{d:+d}" if d else "", style="green" if d > 0 else "red"))
+        if outlook is not None:
+            band = outlook.at(stat, outlook.days)
+            row.append(Text(f"{t('status.in_days', lang, days=outlook.days)}: {band.p10}–{band.p90}", style="dim"))
         table.add_row(*row)
     return table
+
+
+def _danger_text(prob: float, days: int, lang: Lang) -> str:
+    params = default_params()
+    names = "/".join(t(f"stat.{s}", lang) for s in sim.RISK_STATS)
+    return t(
+        "risk.detail", lang, pct=round(prob * 100), days=days, stats=names, below=params.simulation.danger_below
+    )
+
+
+def _day_start_text(repo: Repo, c: Commit, lang: Lang) -> str | None:
+    """Explain the start-of-day change: daily drift plus the aftershock of active tags."""
+    if not c.carryover:
+        return None
+    params = default_params()
+    parent_tags = repo.get_commit(c.parent).tags_active if c.parent else []
+    causes = [
+        tag.name + (f" ×{tag.count}" if tag.count > 1 else "")
+        for tag in rules.expire_tags(parent_tags, c.day)
+        if params.tags[tag.name].carryover
+    ]
+    tags = (" (" + ", ".join(causes) + ")" if lang == "en" else "（" + "，".join(causes) + "）") if causes else ""
+    return t("day.start", lang, tags=tags, effects=format_effects(c.carryover, lang))
 
 
 def _tags_text(tags: list[Tag], lang: Lang) -> str:
@@ -137,11 +165,14 @@ def _color_prefix(prefix: str) -> Text:
     return text
 
 
-def _render_commit(c: Commit, labels: str, lang: Lang) -> None:
+def _render_commit(repo: Repo, c: Commit, labels: str, lang: Lang) -> None:
     console.print(
         f"[yellow]*[/] [yellow]{c.id}[/]{labels} [bold]Day {c.day}[/]  {escape(c.decision)}  "
         f"[{RISK_STYLE[c.risk]}]\\[{c.risk}][/]"
     )
+    day_start = _day_start_text(repo, c, lang)
+    if day_start:
+        _gutter(f"[dim]{escape(day_start)}[/]")
     for o in c.options:
         effects = format_effects(o.effects, lang)
         if o.id == c.chosen:
@@ -188,8 +219,13 @@ def status(ctx: typer.Context) -> None:
     lang = repo.meta.lang
     day = ops.next_day(repo)
     console.print(t("status.header", lang, branch=repo.current_branch, day=day) + "\n")
-    console.print(_state_table(ops.current_state(repo), lang))
+    outlook = ops.forecast(repo, default_params())
+    console.print(_state_table(ops.current_state(repo), lang, outlook=outlook))
     console.print("\n" + t("status.tags", lang, tags=_tags_text(ops.active_tags(repo, day), lang)))
+    console.print(
+        f"{t('commit.risk', lang)}: [{RISK_STYLE[outlook.risk]}]{outlook.risk}[/]  "
+        f"[dim]{escape(_danger_text(outlook.danger_prob, outlook.days, lang))}[/]"
+    )
 
 
 @app.command()
@@ -237,8 +273,15 @@ def _note_fallback(narrator: Narrator, lang: Lang) -> None:
 def _print_result(repo: Repo, c: Commit, before: State, lang: Lang) -> None:
     console.print(
         f"\n[yellow]\\[{escape(repo.current_branch)} {c.id}][/] {escape(c.chosen_option.label)}  "
-        f"{t('commit.risk', lang)}: [{RISK_STYLE[c.risk]}]{c.risk}[/]\n"
+        f"{t('commit.risk', lang)}: [{RISK_STYLE[c.risk]}]{c.risk}[/]"
     )
+    if c.danger_prob is not None:
+        days = default_params().simulation.horizon
+        console.print(f"[dim]{escape(_danger_text(c.danger_prob, days, lang))}[/]")
+    day_start = _day_start_text(repo, c, lang)
+    if day_start:
+        console.print(f"[dim]{escape(day_start)}[/]")
+    console.print()
     console.print(_state_table(c.state_after, lang, before))
     console.print()
     for line in _narration_lines(c.narration, console.width):
@@ -332,7 +375,7 @@ def log(
         console.print(f"[dim]{t('log.empty', lang, branch=repo.current_branch)}[/]")
         return
     for c in commits:
-        _render_commit(c, _labels(repo, c.id, refs), lang)
+        _render_commit(repo, c, _labels(repo, c.id, refs), lang)
     if commits[-1].parent is None:
         console.print(f"[yellow]○[/] [dim]{t('log.root', lang)}[/]")
 
@@ -405,6 +448,73 @@ def checkout(
     if new and (h.id if h else None) != old_head:
         day = h.day if h else 0
         console.print(t("checkout.rewind", lang, day=day, next=day + 1))
+
+
+BAND_WIDTH = 40
+SPARK = "▁▂▃▄▅▆▇█"
+
+
+def _band_bar(band: sim.Band, now: int, lo: int, hi: int) -> Text:
+    """The Schrödinger band: where a stat may be after N days, on a lo..hi axis."""
+
+    def col(v: int) -> int:
+        return round((v - lo) / (hi - lo) * (BAND_WIDTH - 1))
+
+    cells = [("·", "dim")] * BAND_WIDTH
+    for i in range(col(band.p10), col(band.p90) + 1):
+        cells[i] = ("░", "cyan")
+    for i in range(col(band.p25), col(band.p75) + 1):
+        cells[i] = ("▒", "cyan")
+    cells[col(band.p50)] = ("█", "bold cyan")
+    cells[col(now)] = ("│", "bold yellow")
+    text = Text()
+    for ch, style in cells:
+        text.append(ch, style=style)
+    return text
+
+
+SPARK_MAX_POINTS = 14
+
+
+def _sparkline(values: list[int], lo: int, hi: int) -> str:
+    if len(values) > SPARK_MAX_POINTS:  # sample evenly, always keeping the last day
+        step = (len(values) - 1) / (SPARK_MAX_POINTS - 1)
+        values = [values[round(i * step)] for i in range(SPARK_MAX_POINTS)]
+    return "".join(SPARK[round((v - lo) / (hi - lo) * (len(SPARK) - 1))] for v in values)
+
+
+@app.command()
+def forecast(
+    ctx: typer.Context,
+    days: Optional[int] = typer.Option(None, "--days", "-d", min=1, max=90, help="How many days ahead."),
+) -> None:
+    """Simulate many possible futures from here and show where each stat may land."""
+    repo = _load(ctx)
+    lang = repo.meta.lang
+    params = default_params()
+    outlook = ops.forecast(repo, params, days)
+    now = ops.current_state(repo)
+
+    console.print(t("forecast.header", lang, runs=outlook.runs, days=outlook.days, day=outlook.start_day + outlook.days - 1))
+    console.print(f"[dim]{t('disclaimer', lang)}[/]\n")
+    table = Table.grid(padding=(0, 2))
+    for stat in STAT_NAMES:
+        bounds = repo.state_schema[stat]
+        band = outlook.at(stat, outlook.days)
+        medians = [b.p50 for b in outlook.bands[stat]]
+        table.add_row(
+            Text(t(f"stat.{stat}", lang), style="bold"),
+            _band_bar(band, getattr(now, stat), bounds.min, bounds.max),
+            Text(f"{band.p50:>3}", style="bold cyan"),
+            Text(f"{band.p10}–{band.p90}", style="dim"),
+            Text(_sparkline(medians, bounds.min, bounds.max), style="cyan"),
+        )
+    console.print(table)
+    console.print(f"\n[dim]{t('forecast.legend', lang)}[/]")
+    console.print(
+        f"{t('commit.risk', lang)}: [{RISK_STYLE[outlook.risk]}]{outlook.risk}[/]  "
+        f"[dim]{escape(_danger_text(outlook.danger_prob, outlook.days, lang))}[/]"
+    )
 
 
 if __name__ == "__main__":

@@ -58,3 +58,41 @@ actions:
     effects: { energy: [5, 12], mood: [0, 4], goal: [-2, 0] }
     tags: [{ name: rested, duration: 2 }]
     source: assumption
+
+# Baseline change at the start of every day, before any choice: you sleep and recover some
+# energy, while mood and social life slowly fade unless you do something about them.
+# Without this, 6 of 8 actions drain energy and the simulation slides into exhaustion.
+daily_drift: { energy: 3, mood: -2, social: -1 }   # source: assumption (tuned so a mixed week is roughly flat)
+
+# History tags: the butterfly effect. Every tag attached by an action must be listed here.
+# carryover: stat change applied once per day while the tag is active, times its count
+#            (so two late nights in a row hurt twice as much).
+# habit:     multiplies how likely the simulation is to pick an action (habits stick).
+tags:
+  exercised:     { carryover: { mood: 1 },              habit: { exercise: 1.4 },                      source: assumption }
+  overtime:      { carryover: { energy: -1, mood: -1 }, habit: { overtime: 1.3, socialize: 0.8 },      source: assumption }
+  late_night:    { carryover: { energy: -3 },           habit: { stay_up: 1.6, exercise: 0.7 },        source: assumption }
+  socialized:    { carryover: { mood: 1 },              habit: { socialize: 1.2 },                     source: assumption }
+  frugal:        { carryover: {},                       habit: { save_money: 1.3, impulse_buy: 0.7 },  source: assumption }
+  impulse_spent: { carryover: { money: -1 },            habit: { impulse_buy: 1.5 },                   source: assumption }
+  studied:       { carryover: { goal: 1 },              habit: { study: 1.3 },                         source: assumption }
+  rested:        { carryover: { energy: 1 },            habit: { rest: 1.1 },                          source: assumption }
+
+# Monte Carlo forecast ("the superposition"): simulate `runs` futures for `horizon` days.
+# Each simulated day picks an action with weight
+#   (base_weight + history_weight * times you chose it on this branch) * tag habits * low-stat rules
+simulation:
+  runs: 200
+  horizon: 7
+  base_weight: 1.0
+  history_weight: 0.5
+  # Risk rating = chance that any of energy/mood/money/social drops below `danger_below`
+  # at some point within the horizon.
+  danger_below: 20
+  risk_prob: { medium: 0.15, high: 0.4 }
+  # When a stat is low, behavior shifts (tired people rest, broke people save).
+  low_stat_rules:
+    - { stat: energy, below: 30, habit: { rest: 2.5, exercise: 0.5, overtime: 0.5, stay_up: 0.7 }, source: assumption }
+    - { stat: money,  below: 30, habit: { save_money: 2.0, impulse_buy: 0.4, overtime: 1.5 },     source: assumption }
+    - { stat: social, below: 30, habit: { socialize: 2.0 },                                       source: assumption }
+    - { stat: mood,   below: 30, habit: { socialize: 1.5, rest: 1.5, impulse_buy: 1.5 },          source: assumption }

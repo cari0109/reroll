@@ -49,8 +49,27 @@ def test_commit_applies_chosen_effects_only():
     repo = new_repo()
     c = do_commit(repo, chosen="a")
     before = PARAMS.initial_state
-    for stat, delta in c.chosen_option.effects.items():
-        assert getattr(c.state_after, stat) == getattr(before, stat) + delta
+    assert c.carryover == PARAMS.daily_drift  # day 1: no tags yet, only the daily drift
+    for stat in c.chosen_option.effects.keys() | c.carryover.keys():
+        expected = getattr(before, stat) + c.carryover.get(stat, 0) + c.chosen_option.effects.get(stat, 0)
+        assert getattr(c.state_after, stat) == expected
+
+
+def test_tags_from_yesterday_hit_today():
+    repo = new_repo()
+    day1 = do_commit(repo, decision="stay up gaming or sleep?", chosen="a")  # stay_up -> late_night
+    assert day1.chosen_option.action == "stay_up"
+    day2 = do_commit(repo)
+    late_night = PARAMS.tags["late_night"].carryover["energy"]
+    assert day2.carryover.get("energy", 0) == PARAMS.daily_drift["energy"] + late_night
+
+
+def test_forecast_follows_head():
+    repo = new_repo()
+    assert ops.forecast(repo, PARAMS).start_day == 1
+    do_commit(repo)
+    f = ops.forecast(repo, PARAMS, days=3)
+    assert f.start_day == 2 and f.days == 3
 
 
 def test_effects_are_deterministic_for_same_history():

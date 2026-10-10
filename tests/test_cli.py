@@ -58,3 +58,28 @@ def test_commit_invalid_choice(tmp_path):
 def test_commands_without_repo(tmp_path):
     r = run(tmp_path / "life.json", "status")
     assert r.exit_code == 1 and "life init" in r.output
+
+
+def test_forecast_and_status_show_outlook(tmp_path):
+    path = tmp_path / "life.json"
+    run(path, "init")
+    run(path, "commit", "-c", "a")
+
+    r = run(path, "forecast")
+    assert r.exit_code == 0, r.output
+    assert "simulated futures" in r.output and "risk:" in r.output
+
+    r = run(path, "forecast", "--days", "30")
+    assert r.exit_code == 0 and "30 days ahead" in r.output
+    assert run(path, "forecast", "--days", "0").exit_code != 0
+
+    r = run(path, "status")
+    assert "in 7d:" in r.output and "chance" in r.output
+
+
+def test_commit_explains_start_of_day(tmp_path):
+    path = tmp_path / "life.json"
+    run(path, "init")
+    r = run(path, "commit", "-c", "a")
+    assert "New day" in r.output and "% chance" in r.output
+    assert "New day" in run(path, "log").output

@@ -73,9 +73,10 @@ pick what's funniest, don't list everything. The player already sees the stat ta
 most one stat change, and no other numbers.
 
 Decision: {decision}
+Start of the day, before choosing (daily drift + aftershock of recent habits): {day_start}
 Chosen: {chosen} ({effects})
 Ghost options not taken: {ghosts}
-Risk rating: {risk}
+Risk rating: {risk} ({danger})
 
 Context before this choice:
 {context}
@@ -177,7 +178,13 @@ class ClaudeNarrator:
             chosen=chosen.label,
             effects=format_effects(chosen.effects, ctx.lang),
             ghosts="; ".join(f"{o.label} ({format_effects(o.effects, ctx.lang)})" for o in ghosts) or "-",
+            day_start=format_effects(commit.carryover, ctx.lang) if commit.carryover else "-",
             risk=commit.risk,
+            danger=(
+                f"{round(commit.danger_prob * 100)}% of simulated futures hit a dangerously low stat within a week"
+                if commit.danger_prob is not None
+                else "no forecast"
+            ),
             context=render_context(ctx),
         )
 
