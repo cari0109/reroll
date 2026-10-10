@@ -25,6 +25,19 @@ life log --graph       # 所有时间线，git 风格
 life branch            # 列出你的平行人生
 ```
 
+## AI 解说员（可选）
+
+配置 Anthropic 凭证后，决策、选项和解说都由 Claude 来写：
+
+```bash
+export ANTHROPIC_API_KEY=...        # https://console.anthropic.com
+export REROLL_MODEL=claude-opus-5-5 # 可选，默认就是这个
+export REROLL_NARRATOR=mock         # 可选：强制使用离线解说员
+```
+
+没有凭证时 Reroll 完全离线运行，使用内置解说员。Claude 不碰任何数值：它只能从
+`params.yaml` 里选行为类型，具体效果由规则引擎决定。
+
 ## 开发
 
 ```bash

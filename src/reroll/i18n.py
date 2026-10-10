@@ -63,6 +63,10 @@ MESSAGES: dict[str, dict[Lang, str]] = {
         "zh": "🌀 如果 Day {day} 那天，你选的不是「{orig}」而是「{label}」……",
     },
     "whatif.prompt": {"en": "Which ghost do you want to live", "zh": "你想活成哪个幽灵"},
+    "narrator.fallback": {
+        "en": "(narrator fell back to offline mode: {reason})",
+        "zh": "（解说员已切换到离线模式：{reason}）",
+    },
     "init.exists": {"en": "{path} already exists", "zh": "{path} 已存在"},
     "init.done": {
         "en": "Initialized empty life repository in [bold]{path}[/]",

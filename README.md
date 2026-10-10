@@ -25,6 +25,20 @@ life log --graph       # every timeline, git-style
 life branch            # list your parallel lives
 ```
 
+## AI narrator (optional)
+
+With Anthropic credentials, Claude writes the decisions, options and commentary:
+
+```bash
+export ANTHROPIC_API_KEY=...        # https://console.anthropic.com
+export REROLL_MODEL=claude-opus-5-5 # optional, this is the default
+export REROLL_NARRATOR=mock         # optional: force the offline narrator
+```
+
+Without credentials Reroll runs fully offline with a built-in narrator. Claude never
+touches the numbers: it can only pick an action type from `params.yaml`, and the rules
+engine rolls the effects.
+
 ## Development
 
 ```bash

@@ -18,7 +18,8 @@ from rich.text import Text
 from reroll import graph, ops
 from reroll.i18n import DEFAULT_LANG, LANGS, Lang, t
 from reroll.models import STAT_NAMES, Commit, Repo, State, Tag
-from reroll.narrator import MockNarrator, format_effects
+from reroll.claude_narrator import make_narrator
+from reroll.narrator import Narrator, format_effects
 from reroll.params import default_params
 from reroll.storage import DEFAULT_FILE, RepoCorrupt, RepoNotFound, load_repo, save_repo
 
@@ -192,10 +193,12 @@ def commit(
     repo = _load(ctx)
     lang = repo.meta.lang
     params = default_params()
-    narrator = MockNarrator()
+    narrator = make_narrator()
 
     ctx_before = ops.narrator_context(repo, params)
-    proposal = narrator.propose(ctx_before, decision)
+    with console.status("…"):
+        proposal = narrator.propose(ctx_before, decision)
+    _note_fallback(narrator, lang)
     options = ops.build_options(proposal.options, params, ops.rng_for(repo, proposal.decision))
 
     console.print(f"[bold]Day {ctx_before.day}[/] · {escape(proposal.decision)}\n")
@@ -209,9 +212,17 @@ def commit(
 
     before = ops.current_state(repo)
     c = ops.commit(repo, proposal.decision, options, choose, params)
-    c.narration = narrator.narrate(ctx_before, c)
+    with console.status("…"):
+        c.narration = narrator.narrate(ctx_before, c)
     save_repo(repo, ctx.obj)
     _print_result(repo, c, before, lang)
+    _note_fallback(narrator, lang)
+
+
+def _note_fallback(narrator: Narrator, lang: Lang) -> None:
+    reason = getattr(narrator, "last_fallback_reason", None)
+    if reason:
+        console.print(f"[dim]{escape(t('narrator.fallback', lang, reason=reason))}[/]")
 
 
 def _print_result(repo: Repo, c: Commit, before: State, lang: Lang) -> None:
@@ -261,10 +272,13 @@ def whatif(
     ctx_before = ops.narrator_context(repo, params)
     before = ops.current_state(repo)
     c = ops.commit(repo, target.decision, target.options, choose, params)
-    c.narration = MockNarrator().narrate(ctx_before, c)
+    narrator = make_narrator()
+    with console.status("…"):
+        c.narration = narrator.narrate(ctx_before, c)
     save_repo(repo, ctx.obj)
     console.print(t("checkout.done", lang, name=escape(repo.current_branch)))
     _print_result(repo, c, before, lang)
+    _note_fallback(narrator, lang)
 
 
 @app.command()
