@@ -51,7 +51,10 @@ PROPOSE_TASK = """\
 Propose today's decision point.
 
 {decision_line}
-Write 2-4 options. Each option needs:
+"decision" is one short question (max ~15 words, or ~25 Chinese characters). No day number, no \
+scene-setting preamble and no commentary: the commentary comes later, after the choice.
+
+Write 2-4 options; usually 2-3, use 4 only when the decision naturally has that many. Each option needs:
 - "label": a short, punchy choice (max ~6 words / ~12 Chinese characters), no numbers.
 - "action": the action type from the table below that best matches the option. Use each action \
 at most once.
@@ -64,9 +67,10 @@ Context (current state is 0-100 per stat; tags are recent history):
 """
 
 NARRATE_TASK = """\
-The player just committed a choice. Write the commentary for it: 1-2 sentences, max ~40 words \
-(or ~70 Chinese characters). React to the choice, the risk rating and the ghost options they \
-skipped. You may mention the stat changes given below, but no other numbers.
+The player just committed a choice. Write the commentary for it: 1-2 short sentences, max ~30 words \
+(or ~50 Chinese characters). React to the choice, the risk rating or a ghost option they skipped - \
+pick what's funniest, don't list everything. The player already sees the stat table, so mention at \
+most one stat change, and no other numbers.
 
 Decision: {decision}
 Chosen: {chosen} ({effects})

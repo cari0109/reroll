@@ -149,8 +149,17 @@ def _render_commit(c: Commit, labels: str, lang: Lang) -> None:
         else:
             _gutter(f"[dim]○ {escape(o.label)}  {effects}  ({t('log.ghost', lang)})[/]")
     if c.narration:
-        _gutter(f"[italic]🎙  {escape(c.narration)}[/]")
+        for line in _narration_lines(c.narration, console.width - 4):
+            console.print(Text("│   ", style="yellow") + line)
     _gutter("")
+
+
+def _narration_lines(narration: str, width: int) -> list[Text]:
+    """Wrap narration with a hanging indent after the mic icon. Wrapping the text on its
+    own matters for CJK: it has no spaces, so rich would otherwise push the whole
+    sentence onto the line below the icon."""
+    body = Text(narration, style="italic").wrap(console, max(10, width - 4))
+    return [Text("🎙  " if i == 0 else "    ") + line for i, line in enumerate(body)]
 
 
 # ---------------------------------------------------------------- commands
@@ -231,7 +240,9 @@ def _print_result(repo: Repo, c: Commit, before: State, lang: Lang) -> None:
         f"{t('commit.risk', lang)}: [{RISK_STYLE[c.risk]}]{c.risk}[/]\n"
     )
     console.print(_state_table(c.state_after, lang, before))
-    console.print(Text("\n🎙  " + c.narration))
+    console.print()
+    for line in _narration_lines(c.narration, console.width):
+        console.print(line)
 
 
 @app.command()
