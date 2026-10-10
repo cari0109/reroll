@@ -54,6 +54,15 @@ MESSAGES: dict[str, dict[Lang, str]] = {
         "en": "⏪ Time rewinds to the end of Day {day}. Your next commit is Day {next}.",
         "zh": "⏪ 时间倒流回 Day {day} 结束时，下一次 commit 是 Day {next}。",
     },
+    "err.whatif_same": {
+        "en": "that's what you actually chose on Day {day}; pick a ghost option",
+        "zh": "Day {day} 你本来就选的这个，换一个幽灵选项吧",
+    },
+    "whatif.header": {
+        "en": "🌀 What if, on Day {day}, you had chosen “{label}” instead of “{orig}”?",
+        "zh": "🌀 如果 Day {day} 那天，你选的不是「{orig}」而是「{label}」……",
+    },
+    "whatif.prompt": {"en": "Which ghost do you want to live", "zh": "你想活成哪个幽灵"},
     "init.exists": {"en": "{path} already exists", "zh": "{path} 已存在"},
     "init.done": {
         "en": "Initialized empty life repository in [bold]{path}[/]",

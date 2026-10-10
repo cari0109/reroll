@@ -211,13 +211,60 @@ def commit(
     c = ops.commit(repo, proposal.decision, options, choose, params)
     c.narration = narrator.narrate(ctx_before, c)
     save_repo(repo, ctx.obj)
+    _print_result(repo, c, before, lang)
 
+
+def _print_result(repo: Repo, c: Commit, before: State, lang: Lang) -> None:
     console.print(
-        f"\n[yellow]\\[{repo.current_branch} {c.id}][/] {escape(c.chosen_option.label)}  "
+        f"\n[yellow]\\[{escape(repo.current_branch)} {c.id}][/] {escape(c.chosen_option.label)}  "
         f"{t('commit.risk', lang)}: [{RISK_STYLE[c.risk]}]{c.risk}[/]\n"
     )
     console.print(_state_table(c.state_after, lang, before))
     console.print(Text("\n🎙  " + c.narration))
+
+
+@app.command()
+def whatif(
+    ctx: typer.Context,
+    ref: str = typer.Argument(..., help="The commit (id prefix or branch) whose decision you want to redo."),
+    choose: Optional[str] = typer.Option(None, "--choose", "-c", help="Which ghost option to take."),
+    name: Optional[str] = typer.Option(None, "--name", help="Branch name (default: whatif/<commit>)."),
+) -> None:
+    """Go back to a past decision and take the option you didn't. Opens a new branch."""
+    repo = _load(ctx)
+    lang = repo.meta.lang
+    params = default_params()
+    try:
+        target = ops.resolve_commit(repo, ref)
+        ghosts = [o for o in target.options if o.id != target.chosen]
+        if choose is None:
+            if len(ghosts) == 1:
+                choose = ghosts[0].id
+            else:
+                console.print(f"[bold]Day {target.day}[/] · {escape(target.decision)}\n")
+                for o in target.options:
+                    label = escape(o.label)
+                    if o.id == target.chosen:
+                        label = f"[dim strike]{label}[/]"
+                    console.print(f"  [cyan]{o.id}[/]) {label}")
+                choose = Prompt.ask("\n" + t("whatif.prompt", lang), choices=[o.id for o in ghosts], console=console)
+        ops.whatif_option(target, choose)
+
+        ghost = next(o for o in target.options if o.id == choose)
+        console.print(
+            t("whatif.header", lang, day=target.day, label=escape(ghost.label), orig=escape(target.chosen_option.label))
+        )
+        ops.fork_before(repo, target, name)
+    except ops.OpError as e:
+        raise _op_fail(e, lang)
+
+    ctx_before = ops.narrator_context(repo, params)
+    before = ops.current_state(repo)
+    c = ops.commit(repo, target.decision, target.options, choose, params)
+    c.narration = MockNarrator().narrate(ctx_before, c)
+    save_repo(repo, ctx.obj)
+    console.print(t("checkout.done", lang, name=escape(repo.current_branch)))
+    _print_result(repo, c, before, lang)
 
 
 @app.command()

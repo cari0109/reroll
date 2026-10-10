@@ -99,11 +99,19 @@ def resolve_ref(repo: Repo, ref: str) -> str | None:
 
 def create_branch(repo: Repo, name: str, ref: str | None = None) -> Branch:
     """Create a branch at `ref` (default: current HEAD). Does not switch to it."""
+    _check_new_branch_name(repo, name)
+    at = resolve_ref(repo, ref) if ref is not None else repo.branches[repo.current_branch].head
+    return _add_branch(repo, name, at)
+
+
+def _check_new_branch_name(repo: Repo, name: str) -> None:
     if not BRANCH_NAME_RE.match(name):
         raise OpError("err.branch_name", name=name)
     if name in repo.branches:
         raise OpError("err.branch_exists", name=name)
-    at = resolve_ref(repo, ref) if ref is not None else repo.branches[repo.current_branch].head
+
+
+def _add_branch(repo: Repo, name: str, at: str | None) -> Branch:
     branch = Branch(head=at, created_from=at)
     repo.branches[name] = branch
     return branch
@@ -113,6 +121,42 @@ def checkout(repo: Repo, name: str) -> None:
     if name not in repo.branches:
         raise OpError("err.branch_unknown", name=name)
     repo.current_branch = name
+
+
+def resolve_commit(repo: Repo, ref: str) -> Commit:
+    commit_id = resolve_ref(repo, ref)
+    if commit_id is None:  # a branch with no commits yet
+        raise OpError("err.ref_unknown", ref=ref)
+    return repo.get_commit(commit_id)
+
+
+def whatif_option(target: Commit, choice: str) -> str:
+    """Validate an alternative option for replaying `target`."""
+    if choice == target.chosen:
+        raise OpError("err.whatif_same", day=target.day)
+    ids = [o.id for o in target.options]
+    if choice not in ids:
+        raise OpError("commit.bad_choice", choice=choice, ids=", ".join(ids))
+    return choice
+
+
+def fork_before(repo: Repo, target: Commit, name: str | None = None) -> str:
+    """Create a branch at `target`'s parent and switch to it. Returns the branch name.
+
+    Follow with `commit(repo, target.decision, target.options, <ghost id>, params)`:
+    reusing the stored options means the result is exactly the ghost shown in the log.
+    """
+    if name is None:
+        base = name = f"whatif/{target.id}"
+        n = 2
+        while name in repo.branches:
+            name, n = f"{base}-{n}", n + 1
+    else:
+        _check_new_branch_name(repo, name)
+
+    _add_branch(repo, name, target.parent)
+    checkout(repo, name)
+    return name
 
 
 def narrator_context(repo: Repo, params: Params, recent: int = 5) -> NarratorContext:

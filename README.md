@@ -20,6 +20,7 @@ life commit            # face a decision, make a choice
 life log               # history, including the ghosts of choices you didn't make
 life status            # current stats and active tags
 life checkout -b what-if <commit>   # rewind to any past day and try another path
+life whatif <commit>   # what if you'd picked the other option back then?
 life log --graph       # every timeline, git-style
 life branch            # list your parallel lives
 ```
