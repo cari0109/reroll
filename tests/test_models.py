@@ -3,8 +3,8 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from lifegit.models import Branch, Commit, Meta, Option, Repo, State
-from lifegit.params import default_params
+from reroll.models import Branch, Commit, Meta, Option, Repo, State
+from reroll.params import default_params
 
 
 def make_state(**kw) -> State:

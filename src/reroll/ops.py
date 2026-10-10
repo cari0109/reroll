@@ -8,11 +8,11 @@ import random
 import re
 from datetime import date
 
-from lifegit import rules
-from lifegit.i18n import DEFAULT_LANG, Lang
-from lifegit.models import Branch, Commit, Meta, Option, Repo, State, Tag
-from lifegit.narrator import NarratorContext, OptionDraft
-from lifegit.params import Params
+from reroll import rules
+from reroll.i18n import DEFAULT_LANG, Lang
+from reroll.models import Branch, Commit, Meta, Option, Repo, State, Tag
+from reroll.narrator import NarratorContext, OptionDraft
+from reroll.params import Params
 
 # Unicode word chars are allowed so branch names like "如果当初" work.
 BRANCH_NAME_RE = re.compile(r"^(?!-)[\w./-]{1,40}$")

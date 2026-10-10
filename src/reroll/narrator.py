@@ -12,8 +12,8 @@ from typing import Protocol
 
 from pydantic import BaseModel, Field
 
-from lifegit.i18n import Lang, LocalizedText, t
-from lifegit.models import Commit, Risk, State, Tag
+from reroll.i18n import Lang, LocalizedText, t
+from reroll.models import Commit, Risk, State, Tag
 
 
 class OptionDraft(BaseModel):

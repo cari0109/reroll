@@ -3,12 +3,12 @@ from datetime import date
 import pytest
 from typer.testing import CliRunner
 
-from lifegit import graph, ops
-from lifegit.cli import app
-from lifegit.models import Repo
-from lifegit.narrator import MockNarrator
-from lifegit.params import default_params
-from lifegit.storage import load_repo
+from reroll import graph, ops
+from reroll.cli import app
+from reroll.models import Repo
+from reroll.narrator import MockNarrator
+from reroll.params import default_params
+from reroll.storage import load_repo
 
 PARAMS = default_params()
 runner = CliRunner()

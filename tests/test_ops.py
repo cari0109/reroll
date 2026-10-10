@@ -2,11 +2,11 @@ from datetime import date
 
 import pytest
 
-from lifegit import ops
-from lifegit.models import Repo
-from lifegit.narrator import MockNarrator, OptionDraft
-from lifegit.params import default_params
-from lifegit.storage import RepoCorrupt, RepoNotFound, load_repo, save_repo
+from reroll import ops
+from reroll.models import Repo
+from reroll.narrator import MockNarrator, OptionDraft
+from reroll.params import default_params
+from reroll.storage import RepoCorrupt, RepoNotFound, load_repo, save_repo
 
 PARAMS = default_params()
 

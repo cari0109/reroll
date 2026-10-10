@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from lifegit.models import Repo
+from reroll.models import Repo
 
 DEFAULT_FILE = "life.json"
 

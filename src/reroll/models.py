@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from lifegit.i18n import DEFAULT_LANG, Lang
+from reroll.i18n import DEFAULT_LANG, Lang
 
 StatName = Literal["energy", "mood", "money", "social", "goal"]
 STAT_NAMES: tuple[StatName, ...] = ("energy", "mood", "money", "social", "goal")

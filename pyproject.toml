@@ -1,5 +1,5 @@
 [project]
-name = "lifegit"
+name = "reroll"
 version = "0.1.0"
 description = "git log --graph, but for your life. For entertainment only."
 readme = "README.md"
@@ -16,14 +16,14 @@ dependencies = [
 dev = ["pytest>=8.0"]
 
 [project.scripts]
-life = "lifegit.cli:app"
+life = "reroll.cli:app"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/lifegit"]
+packages = ["src/reroll"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,7 +1,7 @@
 from typer.testing import CliRunner
 
-from lifegit.cli import app
-from lifegit.storage import load_repo
+from reroll.cli import app
+from reroll.storage import load_repo
 
 runner = CliRunner()
 

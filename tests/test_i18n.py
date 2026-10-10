@@ -1,9 +1,9 @@
 import re
 
-from lifegit.i18n import LANGS, MESSAGES, t
-from lifegit.models import STAT_NAMES
-from lifegit.narrator import LABELS, NARRATION, QUIPS
-from lifegit.params import default_params
+from reroll.i18n import LANGS, MESSAGES, t
+from reroll.models import STAT_NAMES
+from reroll.narrator import LABELS, NARRATION, QUIPS
+from reroll.params import default_params
 
 
 def placeholders(s: str) -> set[str]:

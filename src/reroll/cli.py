@@ -15,14 +15,14 @@ from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
-from lifegit import graph, ops
-from lifegit.i18n import DEFAULT_LANG, LANGS, Lang, t
-from lifegit.models import STAT_NAMES, Commit, Repo, State, Tag
-from lifegit.narrator import MockNarrator, format_effects
-from lifegit.params import default_params
-from lifegit.storage import DEFAULT_FILE, RepoCorrupt, RepoNotFound, load_repo, save_repo
+from reroll import graph, ops
+from reroll.i18n import DEFAULT_LANG, LANGS, Lang, t
+from reroll.models import STAT_NAMES, Commit, Repo, State, Tag
+from reroll.narrator import MockNarrator, format_effects
+from reroll.params import default_params
+from reroll.storage import DEFAULT_FILE, RepoCorrupt, RepoNotFound, load_repo, save_repo
 
-app = typer.Typer(help="LifeGit: git log --graph, but for your life. For entertainment only.", no_args_is_help=True)
+app = typer.Typer(help="Reroll: git log --graph, but for your life. For entertainment only.", no_args_is_help=True)
 console = Console()
 
 RISK_STYLE = {"low": "green", "medium": "yellow", "high": "bold red"}

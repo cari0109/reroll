@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import random
 
-from lifegit.models import STAT_NAMES, Risk, StatBounds, StatName, State, Tag
-from lifegit.params import ActionSpec
+from reroll.models import STAT_NAMES, Risk, StatBounds, StatName, State, Tag
+from reroll.params import ActionSpec
 
 Schema = dict[StatName, StatBounds]
 

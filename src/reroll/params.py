@@ -8,8 +8,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, Field, model_validator
 
-from lifegit.i18n import LocalizedText
-from lifegit.models import StatBounds, StatName, State
+from reroll.i18n import LocalizedText
+from reroll.models import StatBounds, StatName, State
 
 DEFAULT_PARAMS_PATH = Path(__file__).with_name("params.yaml")
 

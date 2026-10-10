@@ -1,8 +1,8 @@
 import random
 
-from lifegit import rules
-from lifegit.models import State, Tag
-from lifegit.params import ActionSpec, default_params
+from reroll import rules
+from reroll.models import State, Tag
+from reroll.params import ActionSpec, default_params
 
 SCHEMA = default_params().stats
 

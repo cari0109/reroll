@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from lifegit.models import Commit
+from reroll.models import Commit
 
 
 @dataclass
