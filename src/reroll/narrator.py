@@ -42,6 +42,10 @@ class Narrator(Protocol):
 
     def narrate(self, ctx: NarratorContext, commit: Commit) -> str: ...
 
+    def classify(self, ctx: NarratorContext, decision: str, labels: list[str]) -> list[str | None]:
+        """Guess an action type for each user-written option label; None when unsure."""
+        ...
+
 
 def format_effects(effects: dict[str, int], lang: Lang) -> str:
     parts = [f"{t(f'stat.{k}', lang)} {v:+d}" for k, v in effects.items() if v]
@@ -90,16 +94,21 @@ SCENARIOS: list[tuple[LocalizedText, list[tuple[LocalizedText, str]]]] = [
 KEYWORDS: dict[str, re.Pattern[str]] = {
     action: re.compile(pattern, re.IGNORECASE)
     for action, pattern in {
-        "exercise": r"健身|运动|跑步|锻炼|散步|爬山|\b(gym|work ?out|exercise|run|jog|walk|hike)\b",
-        "overtime": r"加班|工作|项目上线|\b(overtime|work late|extra work|deadline)\b",
-        "stay_up": r"熬夜|游戏|追剧|刷手机|再看|\b(stay up|all-nighter|games?|gaming|binge|one more episode)\b",
-        "socialize": r"聚|朋友|约|饭局|社交|\b(friends?|party|hang ?out|dinner|drinks)\b",
+        "exercise": r"健身|运动|跑步|锻炼|散步|爬山|游泳|瑜伽|骑车|打球|\b(gym|work ?out|exercis(e|ing)|run(ning)?|jog(ging)?|walk(ing)?|hik(e|ing)|swim(ming)?|yoga|bik(e|ing)|cycling)\b",
+        "overtime": r"加班|工作|项目上线|开会|\b(overtime|work late|extra work|deadline|meeting)\b",
+        "stay_up": r"熬夜|游戏|追剧|刷手机|再看|\b(stay(ing)? up|all-nighter|games?|gaming|binge|one more episode|scroll(ing)?)\b",
+        "socialize": r"聚|朋友|约|饭局|社交|吃饭|同事|\b(friends?|party|hang ?out|drinks)\b",
         "impulse_buy": r"买|购|下单|剁手|\b(buy|shop(ping)?|order|sale|splurge)\b",
-        "save_money": r"省|存钱|攒|\b(sav(e|ing)|budget|cook at home)\b",
-        "study": r"学|读书|看书|课|刷题|\b(study|learn(ing)?|read(ing)?|course|leetcode|side project)\b",
-        "rest": r"睡|休息|躺|\b(sleep(ing)?|rest|nap|relax|chill)\b",
+        "save_money": r"省|存钱|攒|做饭|带饭|\b(sav(e|ing)|budget|cook(ing)?)\b",
+        "study": r"学|读书|看书|课|刷题|练琴|吉他|写代码|编程|\b(study|learn(ing)?|read(ing)?|course|leetcode|side project|practi[cs]e|code|coding)\b",
+        "rest": r"睡|休息|躺|宅|放松|\b(sleep(ing)?|rest|nap|relax|chill|stay home)\b",
     }.items()
 }
+
+def match_action(text: str, allowed: dict[str, str] | list[str]) -> str | None:
+    """First action whose keywords appear in `text`, or None."""
+    return next((a for a, pat in KEYWORDS.items() if a in allowed and pat.search(text)), None)
+
 
 LABELS: dict[str, LocalizedText] = {
     "exercise": _lt("Work out", "去运动"),
@@ -170,6 +179,9 @@ class MockNarrator:
                 for a in actions[:4]
             ],
         )
+
+    def classify(self, ctx: NarratorContext, decision: str, labels: list[str]) -> list[str | None]:
+        return [match_action(label, ctx.actions) for label in labels]
 
     def narrate(self, ctx: NarratorContext, commit: Commit) -> str:
         opt = commit.chosen_option

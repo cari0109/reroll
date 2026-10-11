@@ -25,6 +25,10 @@
     <p class="eyebrow"><span id="day"></span><span class="risk" id="risk"></span></p>
     <h2 class="question" id="question"></h2>
     <div class="options" id="options"></div>
+    <div class="own">
+      <button type="button" class="link-btn" id="writeOwn"></button>
+      <button type="button" class="link-btn" id="resetOwn" hidden></button>
+    </div>
     <p class="fine" id="hint"></p>
     <p class="legal" id="legal"></p>
   </div>
@@ -40,6 +44,21 @@
     <section><h3 id="dTableT"></h3><div class="table-scroll"><table id="dTable"></table></div></section>
     <section><p id="dNote"></p></section>
   </aside>
+  <dialog class="own-dialog" id="ownDialog" aria-labelledby="ownTitle">
+    <form id="ownForm" method="dialog" novalidate>
+      <h2 id="ownTitle"></h2>
+      <label class="field"><span id="ownQLabel"></span>
+        <input id="ownQ" maxlength="140" autocomplete="off" required>
+      </label>
+      <div class="own-rows" id="ownRows"></div>
+      <p class="own-note" id="ownNote"></p>
+      <p class="own-error" id="ownError" role="alert"></p>
+      <div class="own-actions">
+        <button type="button" class="icon-btn" id="ownCancel"></button>
+        <button type="submit" class="primary-btn" id="ownSubmit"></button>
+      </div>
+    </form>
+  </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <p class="loading" id="loading">…</p>
 

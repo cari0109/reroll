@@ -236,6 +236,29 @@ def build_options(drafts: list[OptionDraft], params: Params, rng: random.Random)
     return options
 
 
+MIN_OPTIONS, MAX_OPTIONS = 2, 4
+
+
+def parse_option_spec(spec: str, actions: dict | list) -> tuple[str, str | None]:
+    """'Go hiking:exercise' -> ('Go hiking', 'exercise'). The suffix counts only if it is a known
+    action type, so labels may contain colons ('6:30 run')."""
+    label, sep, maybe = spec.rpartition(":")
+    if sep and maybe.strip() in actions and label.strip():
+        return label.strip(), maybe.strip()
+    return spec.strip(), None
+
+
+def custom_options(repo: Repo, params: Params, decision: str, drafts: list[OptionDraft]) -> list[Option]:
+    """Options the player wrote themselves. Every draft must already have an action type."""
+    if not decision.strip():
+        raise OpError("custom.need_question")
+    if not MIN_OPTIONS <= len(drafts) <= MAX_OPTIONS:
+        raise OpError("custom.count", n=len(drafts))
+    if any(not d.label.strip() for d in drafts):
+        raise OpError("custom.empty")
+    return build_options(drafts, params, rng_for(repo, decision.strip()))
+
+
 def _commit_id(repo: Repo, payload: dict) -> str:
     existing = {c.id for c in repo.commits}
     salt = 0

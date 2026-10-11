@@ -26,6 +26,11 @@ const T = {
     born: "born", today: "now", danger: "danger zone",
     stage: (s) => `${s} over time. The past is a golden line, skipped choices are ghost points, and the next 7 days are simulated futures.`,
     error: "Something went wrong",
+    writeOwn: "✎ Write your own", resetOwn: "↺ Back to today's prompt",
+    ownTitle: "Your own decision", ownQ: "Question", ownQPh: "e.g. How should I spend tonight?",
+    ownOptPh: (k) => `Option ${k}`, auto: "Auto-detect type", cancel: "Cancel", ownSubmit: "Set as today's decision",
+    ownNote: "Write 2–4 options. The action type decides the numbers; leave it on auto and Reroll will guess.",
+    needQ: "Write a question first.", needTwo: "Write at least two options.", guessed: "guessed",
   },
   zh: {
     legal: "仅供娱乐，不构成任何预测或建议。",
@@ -46,6 +51,11 @@ const T = {
     born: "出生", today: "现在", danger: "危险区",
     stage: (s) => `${s}随时间的变化：过去是一条金线，没选的选项是幽灵点，未来 7 天是模拟出来的人生轨迹。`,
     error: "出错了",
+    writeOwn: "✎ 自己出题", resetOwn: "↺ 换回系统出的题",
+    ownTitle: "自己出题", ownQ: "题目", ownQPh: "例如：今晚怎么过？",
+    ownOptPh: (k) => `选项 ${k}`, auto: "自动识别类型", cancel: "取消", ownSubmit: "设为今天的决定",
+    ownNote: "写 2–4 个选项。数值由行为类型决定；保持「自动识别」的话，系统会帮你猜。",
+    needQ: "先写一个题目。", needTwo: "至少写两个选项。", guessed: "自动识别",
   },
 };
 
@@ -387,12 +397,21 @@ function renderDecision() {
   $("question").textContent = d.question;
   $("hint").textContent = tr().hint;
   $("legal").textContent = tr().legal;
+  $("writeOwn").textContent = tr().writeOwn;
+  $("resetOwn").textContent = tr().resetOwn;
+  $("resetOwn").hidden = !d.custom;
   const box = $("options"); box.replaceChildren();
   for (const o of d.options) {
     const b = h("button", "opt", null, box);
     b.type = "button"; b.id = `opt-${o.id}`; b.disabled = busy; b.title = o.hint;
     h("span", "k", o.id.toUpperCase(), b);
-    b.append(o.label);
+    if (d.custom) {
+      // your own options show their action type, so a wrong guess is easy to spot
+      const txt = h("span", "txt", null, b);
+      h("span", null, o.label, txt);
+      const act = h("span", "act", o.hint, txt);
+      if (o.guessed) { act.append(" · "); h("em", null, tr().guessed, act); }
+    } else b.append(o.label);
     const on = () => { if (!busy) { hoverOpt = o; redraw(); } };
     const off = () => { if (hoverOpt === o) { hoverOpt = null; redraw(); } };
     b.addEventListener("pointerenter", on); b.addEventListener("focus", on);
@@ -529,6 +548,58 @@ async function checkout(name) {
   toast(tr().switched(name));
 }
 
+// ---- write your own decision
+const OWN_KEYS = ["a", "b", "c", "d"];
+function openOwn() {
+  if (busy) return;
+  const t = tr(), d = S.decision;
+  $("ownTitle").textContent = t.ownTitle; $("ownQLabel").textContent = t.ownQ; $("ownNote").textContent = t.ownNote;
+  $("ownCancel").textContent = t.cancel; $("ownSubmit").textContent = t.ownSubmit; $("ownError").textContent = "";
+  const q = $("ownQ"); q.placeholder = t.ownQPh; q.value = d.custom ? d.question : "";
+  const rows = $("ownRows"); rows.replaceChildren();
+  OWN_KEYS.forEach((k, i) => {
+    const prev = d.custom ? d.options[i] : null;
+    const row = h("div", "own-row", null, rows);
+    h("span", "k", k.toUpperCase(), row);
+    const input = h("input", null, null, row);
+    input.id = `ownL-${k}`; input.maxLength = 60; input.autocomplete = "off";
+    input.placeholder = t.ownOptPh(k.toUpperCase()); input.value = prev ? prev.label : "";
+    input.setAttribute("aria-label", t.ownOptPh(k.toUpperCase()));
+    const sel = h("select", null, null, row);
+    sel.id = `ownA-${k}`; sel.setAttribute("aria-label", `${t.ownOptPh(k.toUpperCase())}: type`);
+    h("option", null, t.auto, sel).value = "";
+    for (const [name, desc] of Object.entries(S.actions)) h("option", null, desc, sel).value = name;
+    sel.value = prev && !prev.guessed ? prev.action : "";
+  });
+  $("ownDialog").showModal();
+  q.focus();
+}
+$("ownForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const t = tr(), err = $("ownError");
+  const question = $("ownQ").value.trim();
+  const options = OWN_KEYS.map((k) => ({ label: $(`ownL-${k}`).value.trim(), action: $(`ownA-${k}`).value || null }))
+    .filter((o) => o.label);
+  if (!question) { err.textContent = t.needQ; return; }
+  if (options.length < 2) { err.textContent = t.needTwo; return; }
+  $("ownSubmit").disabled = true; err.textContent = "";
+  try {
+    setState(await api("/api/decision", { question, options }));
+    $("ownDialog").close();
+    hoverOpt = null; renderAll();
+  } catch (ex) {
+    err.textContent = ex.message;
+  } finally {
+    $("ownSubmit").disabled = false;
+  }
+});
+$("ownCancel").addEventListener("click", () => $("ownDialog").close());
+$("writeOwn").addEventListener("click", openOwn);
+$("resetOwn").addEventListener("click", async () => {
+  if (busy) return;
+  try { setState(await api("/api/decision/reset", {})); renderAll(); } catch (ex) { fail(ex); }
+});
+
 function openDrawer() { $("drawer").classList.add("open"); $("scrim").classList.add("open"); $("openDrawer").setAttribute("aria-expanded", "true"); $("closeDrawer").focus(); }
 function closeDrawer() { $("drawer").classList.remove("open"); $("scrim").classList.remove("open"); $("openDrawer").setAttribute("aria-expanded", "false"); }
 $("openDrawer").addEventListener("click", openDrawer);
@@ -536,7 +607,7 @@ $("closeDrawer").addEventListener("click", () => { closeDrawer(); $("openDrawer"
 $("scrim").addEventListener("click", closeDrawer);
 addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeDrawer();
-  if (busy || !S || $("drawer").classList.contains("open")) return;
+  if (busy || !S || $("drawer").classList.contains("open") || $("ownDialog").open) return;
   if (/^[a-d]$/i.test(e.key)) { const btn = $(`opt-${e.key.toLowerCase()}`); if (btn) btn.click(); }
 });
 new ResizeObserver(() => { resize(); safeDraw(); }).observe(cv);

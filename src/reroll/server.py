@@ -12,13 +12,13 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from reroll import ops, rules
 from reroll.claude_narrator import make_narrator
 from reroll.i18n import t
 from reroll.models import STAT_NAMES, Commit, Option, Repo
-from reroll.narrator import Narrator, NarratorContext
+from reroll.narrator import Narrator, NarratorContext, OptionDraft
 from reroll.params import Params, default_params
 from reroll.sim import RISK_STATS, Forecast
 from reroll.storage import RepoCorrupt, RepoNotFound, load_repo, save_repo
@@ -33,6 +33,8 @@ class Pending(BaseModel):
     decision: str
     options: list[Option]
     context: NarratorContext
+    custom: bool = False
+    guessed: list[str] = Field(default_factory=list)  # ids of options whose action type was guessed
 
 
 class CommitRequest(BaseModel):
@@ -46,6 +48,16 @@ class WhatifRequest(BaseModel):
 
 class CheckoutRequest(BaseModel):
     branch: str
+
+
+class OptionIn(BaseModel):
+    label: str = Field(min_length=1, max_length=60)
+    action: str | None = None  # None = let the narrator guess
+
+
+class DecisionRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=140)
+    options: list[OptionIn] = Field(min_length=ops.MIN_OPTIONS, max_length=ops.MAX_OPTIONS)
 
 
 def _forecast_json(f: Forecast) -> dict:
@@ -89,14 +101,17 @@ class Observatory:
         return HTTPException(400, t(e.key, repo.meta.lang, **e.kwargs))
 
     def pending_for(self, repo: Repo) -> Pending:
-        h = ops.head(repo)
-        key = (repo.current_branch, h.id if h else None)
+        key = self.head_key(repo)
         if key not in self.pending:
             ctx = ops.narrator_context(repo, self.params)
             proposal = self.narrator.propose(ctx)
             options = ops.build_options(proposal.options, self.params, ops.rng_for(repo, proposal.decision))
             self.pending[key] = Pending(decision=proposal.decision, options=options, context=ctx)
         return self.pending[key]
+
+    def head_key(self, repo: Repo) -> tuple[str, str | None]:
+        h = ops.head(repo)
+        return (repo.current_branch, h.id if h else None)
 
     def narrate(self, ctx: NarratorContext, c: Commit) -> str | None:
         c.narration = self.narrator.narrate(ctx, c)
@@ -175,11 +190,19 @@ class Observatory:
             "decision": {
                 "day": day,
                 "question": pend.decision,
+                "custom": pend.custom,
                 "options": [
-                    {"id": o.id, "label": o.label, "action": o.action, "hint": pend.context.actions[o.action]}
+                    {
+                        "id": o.id,
+                        "label": o.label,
+                        "action": o.action,
+                        "hint": pend.context.actions[o.action],
+                        "guessed": o.id in pend.guessed,
+                    }
                     for o in pend.options
                 ],
             },
+            "actions": pend.context.actions,
             "forecast": _forecast_json(ops.forecast(repo, p, keep_paths=True)),
             "option_forecasts": {
                 o.id: _forecast_json(ops.forecast(repo, p, runs=OPTION_RUNS, first_action=o.action, keep_paths=True))
@@ -199,8 +222,7 @@ class Observatory:
             if option not in {o.id for o in pend.options}:
                 ids = ", ".join(o.id for o in pend.options)
                 raise HTTPException(400, t("commit.bad_choice", repo.meta.lang, choice=option, ids=ids))
-            h = ops.head(repo)
-            self.pending.pop((repo.current_branch, h.id if h else None), None)
+            self.pending.pop(self.head_key(repo), None)
             c = ops.commit(repo, pend.decision, pend.options, option, self.params)
             reason = self.narrate(pend.context, c)
             save_repo(repo, self.path)
@@ -220,6 +242,40 @@ class Observatory:
             reason = self.narrate(ctx, c)
             save_repo(repo, self.path)
             return self.snapshot(repo, notice=reason and t("narrator.fallback", repo.meta.lang, reason=reason))
+
+    def set_decision(self, req: DecisionRequest) -> dict:
+        """Replace today's proposed decision with the player's own question and options."""
+        with self.lock:
+            repo = self.load()
+            lang, actions = repo.meta.lang, self.params.actions
+            types = ", ".join(actions)
+            for o in req.options:
+                if o.action is not None and o.action not in actions:
+                    raise HTTPException(400, t("custom.bad_type", lang, action=o.action, types=types))
+            ctx = ops.narrator_context(repo, self.params)
+            missing = [i for i, o in enumerate(req.options) if o.action is None]
+            guesses = dict(zip(missing, self.narrator.classify(ctx, req.question, [req.options[i].label for i in missing])))
+            drafts = []
+            for i, o in enumerate(req.options):
+                action = o.action or guesses.get(i)
+                if action is None:
+                    raise HTTPException(400, t("custom.unknown", lang, label=o.label, types=types))
+                drafts.append(OptionDraft(label=o.label.strip(), action=action))
+            try:
+                options = ops.custom_options(repo, self.params, req.question, drafts)
+            except ops.OpError as e:
+                raise self.fail(repo, e)
+            self.pending[self.head_key(repo)] = Pending(
+                decision=req.question.strip(), options=options, context=ctx, custom=True,
+                guessed=[options[i].id for i in missing],
+            )
+            return self.snapshot(repo)
+
+    def reset_decision(self) -> dict:
+        with self.lock:
+            repo = self.load()
+            self.pending.pop(self.head_key(repo), None)
+            return self.snapshot(repo)
 
     def checkout(self, branch: str) -> dict:
         with self.lock:
@@ -248,6 +304,14 @@ def create_app(path: Path, params: Params | None = None, narrator: Narrator | No
     @app.post("/api/whatif")
     def whatif(req: WhatifRequest) -> dict:
         return obs.whatif(req.commit, req.option)
+
+    @app.post("/api/decision")
+    def decision(req: DecisionRequest) -> dict:
+        return obs.set_decision(req)
+
+    @app.post("/api/decision/reset")
+    def reset_decision() -> dict:
+        return obs.reset_decision()
 
     @app.post("/api/checkout")
     def checkout(req: CheckoutRequest) -> dict:

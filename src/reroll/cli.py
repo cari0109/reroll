@@ -6,20 +6,20 @@ import os
 from datetime import date
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import typer
 from rich.console import Console
 from rich.markup import escape
-from rich.prompt import Prompt
+from rich.prompt import Confirm, Prompt
 from rich.table import Table
 from rich.text import Text
 
 from reroll import graph, ops, rules, sim
 from reroll.i18n import DEFAULT_LANG, LANGS, Lang, t
-from reroll.models import STAT_NAMES, Commit, Repo, State, Tag
+from reroll.models import STAT_NAMES, Commit, Option, Repo, State, Tag
 from reroll.claude_narrator import make_narrator
-from reroll.narrator import Narrator, format_effects
+from reroll.narrator import Narrator, NarratorContext, OptionDraft, format_effects
 from reroll.params import default_params
 from reroll.storage import DEFAULT_FILE, RepoCorrupt, RepoNotFound, load_repo, save_repo
 
@@ -233,22 +233,34 @@ def commit(
     ctx: typer.Context,
     decision: Optional[str] = typer.Argument(None, help="Today's decision; omit to get one from the narrator."),
     choose: Optional[str] = typer.Option(None, "--choose", "-c", help="Pick an option id directly (non-interactive)."),
+    option: Optional[List[str]] = typer.Option(
+        None, "--option", "-o",
+        help="Write your own option (2-4 times). Add ':type' to set its action type, e.g. -o 'Go hiking:exercise'.",
+    ),
 ) -> None:
     """Face a decision, make a choice, and record it as a commit."""
     repo = _load(ctx)
     lang = repo.meta.lang
     params = default_params()
     narrator = make_narrator()
+    interactive = choose is None
 
     ctx_before = ops.narrator_context(repo, params)
-    with console.status("…"):
-        proposal = narrator.propose(ctx_before, decision)
-    _note_fallback(narrator, lang)
-    options = ops.build_options(proposal.options, params, ops.rng_for(repo, proposal.decision))
+    guessed: set[str] = set()
+    if option:
+        try:
+            decision, options, guessed = _custom_decision(repo, narrator, ctx_before, decision, option, interactive)
+        except ops.OpError as e:
+            raise _op_fail(e, lang)
+    else:
+        with console.status("…"):
+            proposal = narrator.propose(ctx_before, decision)
+        _note_fallback(narrator, lang)
+        decision = proposal.decision
+        options = ops.build_options(proposal.options, params, ops.rng_for(repo, decision))
 
-    console.print(f"[bold]Day {ctx_before.day}[/] · {escape(proposal.decision)}\n")
-    for o in options:
-        console.print(f"  [cyan]{o.id}[/]) {escape(o.label)}  [dim]{ctx_before.actions[o.action]}[/]")
+    console.print(f"[bold]Day {ctx_before.day}[/] · {escape(decision)}\n")
+    _print_options(options, ctx_before, guessed, lang)
     ids = [o.id for o in options]
     if choose is None:
         choose = Prompt.ask("\n" + t("commit.prompt", lang), choices=ids, console=console)
@@ -256,7 +268,7 @@ def commit(
         raise _fail(t("commit.bad_choice", lang, choice=choose, ids=", ".join(ids)), lang)
 
     before = ops.current_state(repo)
-    c = ops.commit(repo, proposal.decision, options, choose, params)
+    c = ops.commit(repo, decision, options, choose, params)
     with console.status("…"):
         c.narration = narrator.narrate(ctx_before, c)
     save_repo(repo, ctx.obj)
@@ -268,6 +280,59 @@ def _note_fallback(narrator: Narrator, lang: Lang) -> None:
     reason = getattr(narrator, "last_fallback_reason", None)
     if reason:
         console.print(f"[dim]{escape(t('narrator.fallback', lang, reason=reason))}[/]")
+
+
+def _print_options(options: list[Option], nctx: NarratorContext, guessed: set[str], lang: Lang) -> None:
+    for o in options:
+        mark = f" [dim italic]({t('custom.guessed', lang)})[/]" if o.id in guessed else ""
+        console.print(f"  [cyan]{o.id}[/]) {escape(o.label)}  [dim]{nctx.actions[o.action]}[/]{mark}")
+
+
+def _custom_decision(
+    repo: Repo, narrator: Narrator, nctx: NarratorContext, decision: str | None, specs: list[str], interactive: bool
+) -> tuple[str, list[Option], set[str]]:
+    """Build today's options from what the player wrote. Missing action types are guessed by the
+    narrator; in interactive mode the player confirms or corrects the guesses."""
+    params, lang = default_params(), repo.meta.lang
+    if not decision or not decision.strip():
+        raise ops.OpError("custom.need_question")
+    parsed = [ops.parse_option_spec(spec, params.actions) for spec in specs]
+    if not ops.MIN_OPTIONS <= len(parsed) <= ops.MAX_OPTIONS:
+        raise ops.OpError("custom.count", n=len(parsed))
+
+    missing = [i for i, (_, action) in enumerate(parsed) if action is None]
+    guesses: dict[int, str | None] = {}
+    if missing:
+        with console.status("…"):
+            guesses = dict(zip(missing, narrator.classify(nctx, decision, [parsed[i][0] for i in missing])))
+        _note_fallback(narrator, lang)
+
+    types = list(params.actions)
+    drafts, guessed = [], set()
+    for i, (label, action) in enumerate(parsed):
+        if action is None:
+            action = guesses.get(i)
+            if action is None:
+                if not interactive:
+                    raise ops.OpError("custom.unknown", label=label, types=", ".join(types))
+                action = Prompt.ask(t("custom.pick", lang, label=label), choices=types, console=console)
+            else:
+                guessed.add(i)
+        drafts.append(OptionDraft(label=label, action=action))
+
+    if guessed and interactive:
+        preview = ops.custom_options(repo, params, decision, drafts)
+        _print_options(preview, nctx, {preview[i].id for i in guessed}, lang)
+        if not Confirm.ask(t("custom.confirm", lang), default=True, console=console):
+            for i in sorted(guessed):
+                drafts[i].action = Prompt.ask(
+                    t("custom.pick", lang, label=drafts[i].label), choices=types, default=drafts[i].action, console=console
+                )
+        guessed = set()  # the player has looked at every type now
+        console.print()
+
+    options = ops.custom_options(repo, params, decision, drafts)
+    return decision.strip(), options, {options[i].id for i in guessed}
 
 
 def _print_result(repo: Repo, c: Commit, before: State, lang: Lang) -> None:

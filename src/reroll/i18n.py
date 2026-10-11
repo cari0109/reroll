@@ -85,6 +85,20 @@ MESSAGES: dict[str, dict[Lang, str]] = {
         "en": "🔭 Observatory running at [bold]{url}[/]  (Ctrl+C to stop)",
         "zh": "🔭 观测台已启动：[bold]{url}[/]（Ctrl+C 停止）",
     },
+    "custom.need_question": {
+        "en": "your own options need a question too, e.g. life commit \"What now?\" -o \"Nap\" -o \"Run\"",
+        "zh": "自己写选项时也要写题目，例如：life commit \"现在干嘛？\" -o \"午睡\" -o \"跑步\"",
+    },
+    "custom.count": {"en": "write 2–4 options (got {n})", "zh": "需要 2–4 个选项（现在是 {n} 个）"},
+    "custom.empty": {"en": "an option can't be empty", "zh": "选项不能为空"},
+    "custom.unknown": {
+        "en": "couldn't tell what kind of action {label!r} is. Add a type, like \"{label}:rest\". Types: {types}",
+        "zh": "看不出「{label}」属于哪种行为，请加上类型，例如 \"{label}:rest\"。可选类型：{types}",
+    },
+    "custom.bad_type": {"en": "unknown action type {action!r}. Types: {types}", "zh": "没有 {action!r} 这种行为类型。可选类型：{types}"},
+    "custom.guessed": {"en": "guessed", "zh": "自动识别"},
+    "custom.confirm": {"en": "Do these action types look right?", "zh": "这些行为类型对吗？"},
+    "custom.pick": {"en": "Action type for {label!r}", "zh": "「{label}」属于哪种行为"},
     "init.exists": {"en": "{path} already exists", "zh": "{path} 已存在"},
     "init.done": {
         "en": "Initialized empty life repository in [bold]{path}[/]",

@@ -82,11 +82,37 @@ Context before this choice:
 {context}
 """
 
+CLASSIFY_TASK = """\
+The player wrote their own decision and options. For each option, pick the action type from the \
+table below that best describes what the player would actually be doing. Return one action per \
+option, in the same order. Options may share an action type.
+
+Decision: {decision}
+Options:
+{options}
+
+Action table:
+{actions}
+"""
+
 T = TypeVar("T")
 
 
 class _Narration(BaseModel):
     narration: str
+
+
+class _Classification(BaseModel):
+    actions: list[str]
+
+
+def classification_schema(actions: list[str]) -> dict:
+    return {
+        "type": "object",
+        "properties": {"actions": {"type": "array", "items": {"type": "string", "enum": actions}}},
+        "required": ["actions"],
+        "additionalProperties": False,
+    }
 
 
 def proposal_schema(actions: list[str]) -> dict:
@@ -195,6 +221,26 @@ class ClaudeNarrator:
             return narration
 
         return self._call(ctx, prompt, NARRATION_SCHEMA, parse, lambda: self.fallback.narrate(ctx, commit))
+
+    def classify(self, ctx: NarratorContext, decision: str, labels: list[str]) -> list[str | None]:
+        prompt = CLASSIFY_TASK.format(
+            decision=decision,
+            options="\n".join(f"{i + 1}. {label}" for i, label in enumerate(labels)),
+            actions="\n".join(f"- {name}: {desc}" for name, desc in ctx.actions.items()),
+        )
+
+        def parse(text: str) -> list[str | None]:
+            actions = _Classification.model_validate_json(text).actions
+            if len(actions) != len(labels):
+                raise ValueError(f"expected {len(labels)} actions, got {len(actions)}")
+            if set(actions) - set(ctx.actions):
+                raise ValueError("unknown action")
+            return list(actions)
+
+        return self._call(
+            ctx, prompt, classification_schema(list(ctx.actions)), parse,
+            lambda: self.fallback.classify(ctx, decision, labels),
+        )
 
     def _call(
         self,

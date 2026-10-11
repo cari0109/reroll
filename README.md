@@ -39,6 +39,7 @@ Optional: `export ANTHROPIC_API_KEY=...` to let Claude write the decisions and c
 |---|---|
 | `life init [--lang en\|zh]` | Start a new life in `life.json` |
 | `life commit ["your own question"]` | Make today's decision |
+| `life commit "Tonight?" -o "Go hiking" -o "Watch a movie:rest"` | Write your own options; types are guessed unless you add `:type` |
 | `life log` / `life log --graph` | History with ghost options / every branch as a graph |
 | `life status` | Current stats, active habits, 7-day outlook |
 | `life forecast [-d 30]` | Simulated futures drawn as probability bands |
@@ -114,7 +115,7 @@ src/reroll/
 - [x] Claude narrator with schema-constrained output
 - [x] Monte Carlo forecast and habit aftershocks
 - [x] Observatory web UI
-- [ ] Write your own options (auto-classified into action types)
+- [x] Write your own options (auto-classified into action types, editable)
 - [ ] "Multiverse remote": transitions when switching branches
 - [ ] Hosted demo
 
