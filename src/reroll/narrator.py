@@ -94,13 +94,13 @@ SCENARIOS: list[tuple[LocalizedText, list[tuple[LocalizedText, str]]]] = [
 KEYWORDS: dict[str, re.Pattern[str]] = {
     action: re.compile(pattern, re.IGNORECASE)
     for action, pattern in {
-        "exercise": r"健身|运动|跑步|锻炼|散步|爬山|游泳|瑜伽|骑车|打球|\b(gym|work ?out|exercis(e|ing)|run(ning)?|jog(ging)?|walk(ing)?|hik(e|ing)|swim(ming)?|yoga|bik(e|ing)|cycling)\b",
-        "overtime": r"加班|工作|项目上线|开会|\b(overtime|work late|extra work|deadline|meeting)\b",
+        "exercise": r"健身|运动|跑步|锻炼|散步|爬山|游泳|瑜伽|骑车|打球|马拉松|\b(gym|work ?out|exercis(e|ing)|run(ning)?|jog(ging)?|walk(ing)?|hik(e|ing)|swim(ming)?|yoga|bik(e|ing)|cycling)\b",
+        "overtime": r"加班|工作|项目上线|开会|\b(overtime|work late|extra work|deadline|meeting|report)\b",
         "stay_up": r"熬夜|游戏|追剧|刷手机|再看|\b(stay(ing)? up|all-nighter|games?|gaming|binge|one more episode|scroll(ing)?)\b",
-        "socialize": r"聚|朋友|约|饭局|社交|吃饭|同事|\b(friends?|party|hang ?out|drinks)\b",
-        "impulse_buy": r"买|购|下单|剁手|\b(buy|shop(ping)?|order|sale|splurge)\b",
-        "save_money": r"省|存钱|攒|做饭|带饭|\b(sav(e|ing)|budget|cook(ing)?)\b",
-        "study": r"学|读书|看书|课|刷题|练琴|吉他|写代码|编程|\b(study|learn(ing)?|read(ing)?|course|leetcode|side project|practi[cs]e|code|coding)\b",
+        "socialize": r"聚|朋友|约|饭局|社交|吃饭|同事|电话|家人|爸妈|妈妈|KTV|\b(friends?|party|hang ?out|drinks|call (my )?(mom|dad|parents|family))\b",
+        "impulse_buy": r"买|购|下单|剁手|逛街|商场|\b(buy|shop(ping)?|order|sale|splurge)\b",
+        "save_money": r"省|存钱|攒|做饭|带饭|\b(sav(e|ing)|budget|cook(ing)?|meal prep)\b",
+        "study": r"学|读书|看书|课|刷题|练琴|吉他|写代码|编程|自习|图书馆|\b(study|learn(ing)?|read(ing)?|course|leetcode|side project|practi[cs]e|code|coding)\b",
         "rest": r"睡|休息|躺|宅|放松|\b(sleep(ing)?|rest|nap|relax|chill|stay home)\b",
     }.items()
 }
