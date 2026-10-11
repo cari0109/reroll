@@ -2,6 +2,8 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
+[![tests](https://github.com/cari0109/reroll/actions/workflows/tests.yml/badge.svg)](https://github.com/cari0109/reroll/actions/workflows/tests.yml)
+
 > `git log --graph`, but for your life.
 
 <p align="center">
