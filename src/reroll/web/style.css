@@ -211,3 +211,4 @@ th { color: var(--ink-3); font-weight: 500; }
 .primary-btn:hover { background: #fff; }
 .primary-btn[disabled] { opacity: 0.5; cursor: progress; }
 .switcher[hidden] { display: none; }
+.restart { margin: 10px 0 0; color: var(--ink-2); font-size: 13px; }

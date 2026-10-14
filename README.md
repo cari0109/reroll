@@ -10,6 +10,8 @@
   <img src="docs/demo.gif" width="800" alt="The Reroll Observatory: the past is a golden line, the future is a spray of simulated lives. Hovering an option lights up the futures it leads to; choosing collapses them into one point.">
 </p>
 
+**[▶ Try it in your browser](https://cari0109.github.io/reroll/)** (no install; your life is saved only in your browser)
+
 Every small decision is a commit. Every "what if" is a branch. The future is a cloud of simulated lives that collapses the moment you choose.
 
 > **For entertainment only.** The numbers come from made-up rules. Nothing here is a prediction or advice.
@@ -119,7 +121,7 @@ src/reroll/
 - [x] Observatory web UI
 - [x] Write your own options (auto-classified into action types, editable)
 - [x] "Multiverse remote": a branch switcher (`[` / `]`) where the old timeline fades into a ghost and the new one lights up
-- [ ] Hosted demo
+- [x] [Hosted demo](https://cari0109.github.io/reroll/): the same Python package running in your browser via Pyodide
 
 ## License
 

@@ -9,3 +9,5 @@ build/
 # your own life repo - never commit it
 life.json
 .DS_Store
+site/
+dist/

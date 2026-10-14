@@ -91,3 +91,36 @@ def test_serves_the_page(client):
 def test_missing_repo(tmp_path):
     r = TestClient(create_app(tmp_path / "nope.json", narrator=MockNarrator())).get("/api/state")
     assert r.status_code == 404
+
+
+def test_dispatch_matches_http_routes(life):
+    """The browser demo calls Observatory.dispatch directly; it must behave like the HTTP API."""
+    from reroll.observatory import Observatory, ObservatoryError
+
+    obs = Observatory(life, narrator=MockNarrator())
+    s = obs.dispatch("GET", "/api/state")
+    assert s["today"] == 0
+    s = obs.dispatch("POST", "/api/commit", {"option": "a"})
+    assert s["today"] == 1
+    with pytest.raises(ObservatoryError) as e:
+        obs.dispatch("POST", "/api/commit", {"option": "z"})
+    assert e.value.status == 400
+    with pytest.raises(ObservatoryError) as e:
+        obs.dispatch("POST", "/api/commit", {})
+    assert e.value.status == 422
+    with pytest.raises(ObservatoryError) as e:
+        obs.dispatch("GET", "/api/nope")
+    assert e.value.status == 404
+
+
+def test_observatory_module_has_no_web_framework_dependency():
+    """The Pyodide build installs reroll without FastAPI or the Anthropic SDK."""
+    import ast
+    from pathlib import Path
+
+    import reroll.observatory as mod
+
+    tree = ast.parse(Path(mod.__file__).read_text())
+    top = {n.names[0].name.split(".")[0] for n in tree.body if isinstance(n, ast.Import)}
+    top |= {n.module.split(".")[0] for n in tree.body if isinstance(n, ast.ImportFrom) and n.module}
+    assert not top & {"fastapi", "anthropic", "uvicorn", "typer", "rich"}

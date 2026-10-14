@@ -14,6 +14,7 @@ const T = {
     risk: "Risk outlook", branches: "Parallel lives", reroll: "Reroll a past day", tags: "Active habits", table: "Forecast",
     noTags: "No habits yet.", noReroll: "Make a choice first.",
     note: "Every number comes from simulated futures under made-up rules (params.yaml). It is a toy, not a prediction or advice.",
+    demo: "This demo runs entirely in your browser; your life is saved only here.", restart: "Start a new life:",
     day: (d) => `Day ${d}`, branch: "on", remoteKeys: "Press [ or ] to flip between lives",
     riskLevel: { low: "low risk", medium: "medium risk", high: "high risk" },
     riskText: (p, n, below) => `${p}% of ${n} simulated futures see energy, mood, money or social drop below ${below} within 7 days.`,
@@ -39,6 +40,7 @@ const T = {
     risk: "风险展望", branches: "平行人生", reroll: "重来过去的某一天", tags: "活跃习惯", table: "预测",
     noTags: "还没有养成习惯。", noReroll: "先做一个选择吧。",
     note: "这里的每个数字都来自模拟的未来，规则写在 params.yaml 里，是编的。这是个玩具，不是预测，也不是建议。",
+    demo: "这个演示完全在你的浏览器里运行，你的人生只保存在这里。", restart: "开始新的人生：",
     day: (d) => `Day ${d}`, branch: "分支", remoteKeys: "按 [ 或 ] 在平行人生之间切换",
     riskLevel: { low: "低风险", medium: "中风险", high: "高风险" },
     riskText: (p, n, below) => `${n} 个模拟的未来里，有 ${p}% 会在 7 天内出现精力、心情、财务或社交跌破 ${below}。`,
@@ -96,6 +98,7 @@ function toast(msg) {
 }
 
 async function api(path, body) {
+  if (window.rerollApi) return window.rerollApi(path, body); // static demo: Python runs in this tab
   const res = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail || `${res.status}`);
@@ -445,6 +448,18 @@ function renderDrawer() {
   $("drawerTitle").textContent = t.drawer;
   $("dRiskT").textContent = t.risk; $("dBranchT").textContent = t.branches; $("dRerollT").textContent = t.reroll;
   $("dTagsT").textContent = t.tags; $("dTableT").textContent = `${t.table} · ${sname(stat)}`; $("dNote").textContent = t.note;
+  if (window.rerollDemo) {
+    const note = $("dNote");
+    note.append(" ", t.demo);
+    const old = $("restartRow"); if (old) old.remove();
+    const row = h("p", "restart", `${t.restart} `, note.parentElement);
+    row.id = "restartRow";
+    for (const [lang_, label] of [["en", "English"], ["zh", "中文"]]) {
+      const b = h("button", "link-btn", label, row); b.type = "button";
+      b.addEventListener("click", () => window.rerollDemo.reset(lang_));
+      row.append(" ");
+    }
+  }
 
   const risk = $("dRisk"); risk.replaceChildren();
   const lvl = h("p", `risk risk-${fc.risk}`, t.riskLevel[fc.risk], risk); lvl.style.margin = "0";
