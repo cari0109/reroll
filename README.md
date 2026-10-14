@@ -118,7 +118,7 @@ src/reroll/
 - [x] Monte Carlo forecast and habit aftershocks
 - [x] Observatory web UI
 - [x] Write your own options (auto-classified into action types, editable)
-- [ ] "Multiverse remote": transitions when switching branches
+- [x] "Multiverse remote": a branch switcher (`[` / `]`) where the old timeline fades into a ghost and the new one lights up
 - [ ] Hosted demo
 
 ## License

@@ -14,7 +14,7 @@ const T = {
     risk: "Risk outlook", branches: "Parallel lives", reroll: "Reroll a past day", tags: "Active habits", table: "Forecast",
     noTags: "No habits yet.", noReroll: "Make a choice first.",
     note: "Every number comes from simulated futures under made-up rules (params.yaml). It is a toy, not a prediction or advice.",
-    day: (d) => `Day ${d}`, branch: "on",
+    day: (d) => `Day ${d}`, branch: "on", remoteKeys: "Press [ or ] to flip between lives",
     riskLevel: { low: "low risk", medium: "medium risk", high: "high risk" },
     riskText: (p, n, below) => `${p}% of ${n} simulated futures see energy, mood, money or social drop below ${below} within 7 days.`,
     thead: (s) => ["Day", "Low", `${s} median`, "High"],
@@ -39,7 +39,7 @@ const T = {
     risk: "风险展望", branches: "平行人生", reroll: "重来过去的某一天", tags: "活跃习惯", table: "预测",
     noTags: "还没有养成习惯。", noReroll: "先做一个选择吧。",
     note: "这里的每个数字都来自模拟的未来，规则写在 params.yaml 里，是编的。这是个玩具，不是预测，也不是建议。",
-    day: (d) => `Day ${d}`, branch: "分支",
+    day: (d) => `Day ${d}`, branch: "分支", remoteKeys: "按 [ 或 ] 在平行人生之间切换",
     riskLevel: { low: "低风险", medium: "中风险", high: "高风险" },
     riskText: (p, n, below) => `${n} 个模拟的未来里，有 ${p}% 会在 7 天内出现精力、心情、财务或社交跌破 ${below}。`,
     thead: (s) => ["天", "低", `${s}中位数`, "高"],
@@ -108,7 +108,7 @@ const ctx = cv.getContext("2d");
 let W = 0, H = 0, dpr = 1, starLayer = null, hits = [];
 const COLORS = { real: "#c4801c", maybe: "114,127,224", ghost: "#5d6391", ink3: "#757aa3", ink2: "#a9adca", bad: "214,81,81" };
 const GHOST_RGB = "93,99,145";
-const anim = { growT0: 0, collapse: null, measure: null, flash: null };
+const anim = { growT0: 0, collapse: null, measure: null, flash: null, switch: null };
 const mixRgb = (a, b, t) => { const x = a.split(",").map(Number), y = b.split(",").map(Number); return x.map((v, i) => Math.round(lerp(v, y[i], t))).join(","); };
 
 function resize() {
@@ -176,6 +176,18 @@ function drawThreads(G, runs, start, { alpha, color, grow = 1, collapseTo = null
       ctx.beginPath(); ctx.arc(ex, ey, 1.4, 0, Math.PI * 2); ctx.fill();
     }
   });
+  ctx.restore();
+}
+
+function goldLine(G, pts, alpha, color, width) {
+  if (alpha <= 0.01 || pts.length < 2) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (color === COLORS.real) { ctx.shadowColor = COLORS.real; ctx.shadowBlur = 14; }
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.beginPath();
+  pts.forEach((c, i) => (i ? ctx.lineTo(G.X(c.day), G.Y(c.state[stat])) : ctx.moveTo(G.X(c.day), G.Y(c.state[stat]))));
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -247,30 +259,37 @@ function draw() {
   }
   ctx.globalAlpha = 1;
 
+  // branch switch: 0 -> 1 while the old timeline fades to a ghost and the new one lights up
+  const sw = anim.switch ? Math.min(1, (tNow - anim.switch.t0) / anim.switch.ms) : 1;
+  const swT = ease(sw);
+  if (anim.switch && sw >= 1) anim.switch = null;
+
   // ghosts: what each skipped option would have done that day
+  ctx.save();
+  ctx.globalAlpha = swT;
   path.forEach((c, i) => {
     const prev = i === 0 ? { day: 0, state: S.initial } : path[i - 1];
     for (const o of c.options) {
       if (o.id === c.chosen) continue;
       const gv = o.state_if[stat];
       const x = X(c.day), y = Y(gv);
-      ctx.strokeStyle = COLORS.ghost; ctx.globalAlpha = 0.55; ctx.lineWidth = 1.2;
+      ctx.strokeStyle = COLORS.ghost; ctx.globalAlpha = 0.55 * swT; ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(X(prev.day), Y(prev.state[stat])); ctx.lineTo(x, y); ctx.stroke();
-      ctx.globalAlpha = 1; ctx.lineWidth = 2;
+      ctx.globalAlpha = swT; ctx.lineWidth = 2;
       ctx.fillStyle = "#0b0d1c"; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       hits.push({ x, y, r: 14, kind: "ghost", c, o, gv });
     }
   });
-
-  // reality: the golden thread
-  const pts = [{ day: 0, state: S.initial }, ...path];
-  ctx.save();
-  ctx.shadowColor = COLORS.real; ctx.shadowBlur = 14;
-  ctx.strokeStyle = COLORS.real; ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.lineCap = "round";
-  ctx.beginPath();
-  pts.forEach((c, i) => (i ? ctx.lineTo(X(c.day), Y(c.state[stat])) : ctx.moveTo(X(c.day), Y(c.state[stat]))));
-  ctx.stroke();
   ctx.restore();
+
+  // reality: the golden thread. During a branch switch the new timeline rises out of its grey
+  // ghost line while the old one sinks back into grey.
+  const pts = [{ day: 0, state: S.initial }, ...path];
+  if (anim.switch) {
+    goldLine(G, pts, 1 - swT, COLORS.ghost, 1.5);
+    goldLine(G, anim.switch.from.filter((c) => c.day <= today), 1 - swT, COLORS.real, 3);
+  }
+  goldLine(G, pts, swT, COLORS.real, 3);
   for (const c of pts.slice(1, -1)) {
     ctx.fillStyle = COLORS.real; ctx.strokeStyle = "#0b0d1c"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(X(c.day), Y(c.state[stat]), 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
@@ -313,7 +332,7 @@ function draw() {
   ctx.beginPath(); ctx.arc(now.x, now.y, 6, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 
-  if (anim.flash) {
+  if (anim.flash && tNow >= anim.flash.t0) {
     const t = (tNow - anim.flash.t0) / 520;
     if (t >= 1) anim.flash = null;
     else {
@@ -379,6 +398,7 @@ cv.addEventListener("click", (e) => { const t = hitAt(e.clientX, e.clientY); if 
 // ============================================================ overlay ui
 function renderTop() {
   const b = $("branch"); b.replaceChildren(); b.append(`${tr().branch} `); h("b", null, S.branch, b);
+  renderSwitcher();
   const seg = $("stats"); seg.replaceChildren();
   for (const k of STATS) {
     const btn = h("button", null, sname(k), seg);
@@ -537,12 +557,22 @@ async function reroll(c, optionId) {
   toast(tr().rerolled(nc.day, S.branch));
 }
 
+const SWITCH_MS = 900;
 async function checkout(name) {
   if (busy || name === S.branch) return;
   busy = true;
+  closeDrawer(); closeSwitcher(); hoverOpt = null; hideTip();
+  const from = [{ day: 0, state: S.initial }, ...S.path];
   let next;
   try { next = await api("/api/checkout", { branch: name }); } catch (err) { return fail(err); }
   setState(next);
+  const t0 = performance.now();
+  if (!reduced()) {
+    anim.switch = { t0, ms: SWITCH_MS, from };
+    anim.growT0 = t0 + SWITCH_MS * 0.45; // futures start growing as the new line lights up
+  }
+  const G = layout();
+  anim.flash = { t0: t0 + (reduced() ? 0 : SWITCH_MS * 0.4), x: G.X(S.today), y: G.Y(S.state[stat]) };
   busy = false;
   renderAll();
   toast(tr().switched(name));
@@ -600,15 +630,43 @@ $("resetOwn").addEventListener("click", async () => {
   try { setState(await api("/api/decision/reset", {})); renderAll(); } catch (ex) { fail(ex); }
 });
 
+// ---- the multiverse remote: a channel list of parallel lives
+function renderSwitcher() {
+  const menu = $("switcher"); menu.replaceChildren();
+  S.branches.forEach((br, i) => {
+    const btn = h("button", null, null, menu);
+    btn.type = "button"; btn.setAttribute("role", "menuitem"); btn.setAttribute("aria-current", String(br.current));
+    h("span", "ch", String(i + 1).padStart(2, "0"), btn);
+    h("span", "name", br.name, btn);
+    h("span", "meta", `Day ${br.head_day}`, btn);
+    btn.addEventListener("click", () => checkout(br.name));
+  });
+  h("div", "keys", tr().remoteKeys, menu);
+}
+function openSwitcher() {
+  $("switcher").hidden = false; $("branch").setAttribute("aria-expanded", "true");
+  const cur = $("switcher").querySelector('[aria-current="true"]'); if (cur) cur.focus();
+}
+function closeSwitcher() { $("switcher").hidden = true; $("branch").setAttribute("aria-expanded", "false"); }
+$("branch").addEventListener("click", (e) => { e.stopPropagation(); $("switcher").hidden ? openSwitcher() : closeSwitcher(); });
+document.addEventListener("click", (e) => { if (!e.target.closest(".remote")) closeSwitcher(); });
+function flip(step) {
+  const names = S.branches.map((b) => b.name);
+  if (names.length < 2) return;
+  checkout(names[(names.indexOf(S.branch) + step + names.length) % names.length]);
+}
+
 function openDrawer() { $("drawer").classList.add("open"); $("scrim").classList.add("open"); $("openDrawer").setAttribute("aria-expanded", "true"); $("closeDrawer").focus(); }
 function closeDrawer() { $("drawer").classList.remove("open"); $("scrim").classList.remove("open"); $("openDrawer").setAttribute("aria-expanded", "false"); }
 $("openDrawer").addEventListener("click", openDrawer);
 $("closeDrawer").addEventListener("click", () => { closeDrawer(); $("openDrawer").focus(); });
 $("scrim").addEventListener("click", closeDrawer);
 addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeDrawer();
+  if (e.key === "Escape") { closeDrawer(); closeSwitcher(); }
   if (busy || !S || $("drawer").classList.contains("open") || $("ownDialog").open) return;
   if (/^[a-d]$/i.test(e.key)) { const btn = $(`opt-${e.key.toLowerCase()}`); if (btn) btn.click(); }
+  if (e.key === "[") flip(-1);
+  if (e.key === "]") flip(1);
 });
 new ResizeObserver(() => { resize(); safeDraw(); }).observe(cv);
 matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", start);
