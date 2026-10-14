@@ -142,7 +142,7 @@ function layout(snap = S) {
   const plotBottom = Math.max(top + 160, H - $("bottom").offsetHeight + 30);
   const xL = W < 560 ? 26 : 56;
   const xNow = W * (W < 560 ? 0.34 : 0.42);
-  const xR = W - (W < 560 ? 54 : 110);
+  const xR = W - (W < 560 ? 88 : 110); // room for the A/B/C range labels
   const X = (d) => (d <= today ? (today === 0 ? xNow : xL + (d / today) * (xNow - xL)) : xNow + ((d - today) / days) * (xR - xNow));
   const [lo, hi] = snap.bounds[stat];
   const Y = (v) => top + (1 - (v - lo) / (hi - lo)) * (plotBottom - top);
