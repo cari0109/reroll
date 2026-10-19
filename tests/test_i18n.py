@@ -2,7 +2,8 @@ import re
 
 from reroll.i18n import LANGS, MESSAGES, t
 from reroll.models import STAT_NAMES
-from reroll.narrator import LABELS, NARRATION, QUIPS
+from reroll.commentary import OPENER, QUIPS
+from reroll.narrator import LABELS
 from reroll.params import default_params
 
 
@@ -24,6 +25,6 @@ def test_every_stat_has_a_display_name():
 
 def test_mock_text_covers_every_action_and_language():
     assert set(LABELS) == set(default_params().actions)
-    assert set(NARRATION) == set(LANGS)
+    assert set(OPENER) == set(LANGS)
     for by_lang in QUIPS.values():
         assert set(by_lang) == set(LANGS) and all(by_lang.values())
