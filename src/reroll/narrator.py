@@ -12,6 +12,8 @@ from typing import Protocol
 
 from pydantic import BaseModel, Field
 
+from reroll import scenarios
+
 from reroll.i18n import Lang, LocalizedText, t
 from reroll.models import Commit, Risk, State, Tag
 
@@ -58,37 +60,6 @@ def format_effects(effects: dict[str, int], lang: Lang) -> str:
 def _lt(en: str, zh: str) -> LocalizedText:
     return LocalizedText(en=en, zh=zh)
 
-
-SCENARIOS: list[tuple[LocalizedText, list[tuple[LocalizedText, str]]]] = [
-    (
-        _lt("Gym tonight, or stay late at work?", "今晚去健身还是加班？"),
-        [(_lt("Hit the gym", "去健身"), "exercise"), (_lt("Stay late", "留下来加班"), "overtime")],
-    ),
-    (
-        _lt("It's 1 a.m. One more episode?", "已经凌晨一点了，再看一集吗？"),
-        [(_lt("One more episode", "再看一集"), "stay_up"), (_lt("Lights out", "关灯睡觉"), "rest")],
-    ),
-    (
-        _lt("Friends invited you to hotpot on Friday night", "朋友约周五晚上吃火锅"),
-        [
-            (_lt("I'm in!", "去！"), "socialize"),
-            (_lt("Cook at home and save", "在家做饭省钱"), "save_money"),
-            (_lt("Stay in and study", "在家学习"), "study"),
-        ],
-    ),
-    (
-        _lt("That thing in your cart just went on sale", "购物车里那件东西打折了"),
-        [(_lt("Buy it", "下单"), "impulse_buy"), (_lt("Empty the cart", "清空购物车"), "save_money")],
-    ),
-    (
-        _lt("How should you spend Saturday morning?", "周六上午怎么过？"),
-        [
-            (_lt("Learn something new", "学点新东西"), "study"),
-            (_lt("Sleep till noon", "睡到中午"), "rest"),
-            (_lt("Go for a run", "出门跑步"), "exercise"),
-        ],
-    ),
-]
 
 # One pattern per action covering both languages, so matching doesn't depend on repo language.
 KEYWORDS: dict[str, re.Pattern[str]] = {
@@ -160,10 +131,10 @@ class MockNarrator:
 
     def propose(self, ctx: NarratorContext, decision: str | None = None) -> Proposal:
         if decision is None:
-            text, opts = SCENARIOS[(ctx.day - 1) % len(SCENARIOS)]
+            sc = scenarios.pick(ctx)
             return Proposal(
-                decision=text.get(ctx.lang),
-                options=[OptionDraft(label=label.get(ctx.lang), action=a) for label, a in opts],
+                decision=sc.question.get(ctx.lang),
+                options=[OptionDraft(label=label.get(ctx.lang), action=a) for label, a in sc.options],
             )
 
         actions = [a for a, pat in KEYWORDS.items() if pat.search(decision) and a in ctx.actions]

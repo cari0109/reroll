@@ -102,10 +102,8 @@ def test_cli_whatif_two_options_needs_no_prompt(tmp_path):
 def test_cli_whatif_prompts_among_ghosts(tmp_path):
     path = tmp_path / "life.json"
     run(path, "init")
-    for _ in range(3):  # Day 3's scenario has three options
-        run(path, "commit", "-c", "a")
-    day3 = ops.head(load_repo(path))
-    assert len(day3.options) == 3
+    run(path, "commit", "Tonight?", "-o", "Nap:rest", "-o", "Read:study", "-o", "Run:exercise", "-c", "a")
+    assert len(ops.head(load_repo(path)).options) == 3
 
     r = run(path, "whatif", "main", input="c\n")
     assert r.exit_code == 0, r.output
