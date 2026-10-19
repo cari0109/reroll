@@ -28,7 +28,7 @@ def create_app(path: Path, params: Params | None = None, narrator: Narrator | No
 
     @app.exception_handler(ObservatoryError)
     def observatory_error(_: Request, e: ObservatoryError) -> JSONResponse:
-        return JSONResponse({"detail": e.detail}, status_code=e.status)
+        return JSONResponse({"detail": e.detail, **e.extra}, status_code=e.status)
 
     @app.get("/api/state")
     def state() -> dict:

@@ -212,3 +212,5 @@ th { color: var(--ink-3); font-weight: 500; }
 .primary-btn[disabled] { opacity: 0.5; cursor: progress; }
 .switcher[hidden] { display: none; }
 .restart { margin: 10px 0 0; color: var(--ink-2); font-size: 13px; }
+.own-row.needs-type select { border-color: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 25%, transparent); }
+.own-row.needs-type .k { color: var(--warn); }

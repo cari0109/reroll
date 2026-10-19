@@ -165,3 +165,39 @@ def test_api_own_decision_errors_and_reset(client):
 
     c.post("/api/decision", json={"question": "Mine", "options": [{"label": "nap"}, {"label": "run"}]})
     assert c.post("/api/decision/reset", json={}).json()["decision"]["question"] == original
+
+
+@pytest.mark.parametrize(
+    "question, label, action",
+    [
+        ("Should I say yes when my manager asks me to work overtime?", "yes", "overtime"),
+        ("Should I say yes when my manager asks me to work overtime?", "no", "rest"),
+        ("老板让我加班，要加吗？", "要", "overtime"),
+        ("老板让我加班，要加吗？", "不要", "rest"),
+        ("老板让我加班，要加吗？", "算了", "rest"),
+        ("要不要早点睡？", "不了", "stay_up"),
+        ("那件衣服要买吗", "不买", "save_money"),
+        ("Gym tonight?", "no gym", "rest"),
+        ("Go to the party?", "nah", "rest"),
+        ("看电影吗", "yes", None),  # the question itself is unclear, so the player must pick
+        ("Notebook shopping?", "notebook", None),  # "no" inside a word is not a negation
+    ],
+)
+def test_short_answers_are_read_against_the_question(question, label, action):
+    from reroll.narrator import classify_label
+
+    assert classify_label(label, question, PARAMS.actions) == action
+
+
+def test_api_yes_no_answers(client):
+    c, _ = client
+    body = {"question": "Should I work overtime tonight?", "options": [{"label": "yes"}, {"label": "no"}]}
+    d = c.post("/api/decision", json=body).json()["decision"]
+    assert [(o["label"], o["action"]) for o in d["options"]] == [("yes", "overtime"), ("no", "rest")]
+
+
+def test_api_reports_which_options_need_a_type(client):
+    c, _ = client
+    body = {"question": "Movie night?", "options": [{"label": "yes"}, {"label": "Nap"}, {"label": "no"}]}
+    r = c.post("/api/decision", json=body)
+    assert r.status_code == 400 and r.json()["unknown"] == ["yes", "no"]

@@ -81,6 +81,42 @@ def match_action(text: str, allowed: dict[str, str] | list[str]) -> str | None:
     return next((a for a, pat in KEYWORDS.items() if a in allowed and pat.search(text)), None)
 
 
+# Short answers to the question itself ("Work overtime tonight?" -> "yes" / "no").
+_END = r"\s*[!！.。~～]*\s*$"
+YES = re.compile(r"^\s*(yes|yeah|yep|yup|sure|ok(ay)?|do it|of course|why not|let'?s go|"
+                 r"要|好|好的|行|可以|是|嗯|加|去|当然|必须|冲)" + _END, re.IGNORECASE)
+NO = re.compile(r"^\s*(no|nope|nah|not now|skip( it)?|pass|don'?t|no way|"
+                r"不|不要|不用|不了|算了|不加|不去|拒绝|不行|下次吧|改天|改天吧)" + _END, re.IGNORECASE)
+# What "no" usually means when the question is about doing X.
+OPPOSITE = {
+    "overtime": "rest", "stay_up": "rest", "socialize": "rest", "exercise": "rest", "study": "rest",
+    "impulse_buy": "save_money", "save_money": "impulse_buy", "rest": "stay_up",
+}
+
+
+NEGATED = re.compile(r"^\s*(不要|不|别|没|don'?t\b|do not\b|no\b|not\b|skip\b)", re.IGNORECASE)
+
+
+def classify_label(label: str, decision: str, allowed: dict[str, str] | list[str]) -> str | None:
+    """Keywords in the label first ("不买" / "no gym" flip to the opposite); a bare yes/no is
+    read against what the question asks."""
+    action = match_action(label, allowed)
+    if action is not None:
+        if NEGATED.match(label):
+            opposite = OPPOSITE.get(action)
+            return opposite if opposite in allowed else None
+        return action
+    topic = match_action(decision, allowed)
+    if topic is None:
+        return None
+    if NO.match(label):
+        opposite = OPPOSITE.get(topic)
+        return opposite if opposite in allowed else None
+    if YES.match(label):
+        return topic
+    return None
+
+
 LABELS: dict[str, LocalizedText] = {
     "exercise": _lt("Work out", "去运动"),
     "overtime": _lt("Get some work done", "去工作"),
@@ -119,7 +155,7 @@ class MockNarrator:
         )
 
     def classify(self, ctx: NarratorContext, decision: str, labels: list[str]) -> list[str | None]:
-        return [match_action(label, ctx.actions) for label in labels]
+        return [classify_label(label, decision, ctx.actions) for label in labels]
 
     def narrate(self, ctx: NarratorContext, commit: Commit) -> str:
         return commentary(ctx, commit)
