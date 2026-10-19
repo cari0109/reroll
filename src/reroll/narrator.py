@@ -6,16 +6,16 @@ numbers. Milestone 2 adds an implementation backed by Claude.
 
 from __future__ import annotations
 
-import random
 import re
 from typing import Protocol
 
 from pydantic import BaseModel, Field
 
 from reroll import scenarios
+from reroll.commentary import QUIPS, commentary  # noqa: F401  (QUIPS re-exported)
 
 from reroll.i18n import Lang, LocalizedText, t
-from reroll.models import Commit, Risk, State, Tag
+from reroll.models import Commit, State, Tag
 
 
 class OptionDraft(BaseModel):
@@ -92,39 +92,6 @@ LABELS: dict[str, LocalizedText] = {
     "rest": _lt("Get some rest", "好好休息"),
 }
 
-QUIPS: dict[Risk, dict[Lang, list[str]]] = {
-    "low": {
-        "en": [
-            "Safe route. The commentator yawns.",
-            "Textbook play. Nothing to roast here.",
-            "Playing it safe. Chat: 'that's it?'",
-        ],
-        "zh": ["稳健路线，解说员打了个哈欠。", "教科书式操作，没什么好吐槽的。", "安全牌。观众：就这？"],
-    },
-    "medium": {
-        "en": [
-            "Getting risky. The crowd sits up.",
-            "Bold route... the commentator reserves judgment.",
-            "Health bar turning yellow. Watch your footing.",
-        ],
-        "zh": ["有点冒险了，观众开始坐直身子。", "这条路线……解说员保留意见。", "血条开始泛黄，注意走位。"],
-    },
-    "high": {
-        "en": [
-            "Danger! Only speedrunners take this line.",
-            "The commentator is already scouting your respawn point.",
-            "Red HP and still showing off. Is this what life is?",
-        ],
-        "zh": ["危！这是速通选手才敢走的路线。", "解说员已经开始帮你找复活点了。", "红血了还在浪，这就是人生吗？"],
-    },
-}
-
-NARRATION: dict[Lang, str] = {
-    "en": "Day {day}: the runner picks “{label}” ({effects}). {quip}",
-    "zh": "Day {day}，选手选择了「{label}」（{effects}）。{quip}",
-}
-
-
 class MockNarrator:
     """Narrator that calls no model: preset scenarios, keyword matching, template quips.
     Fully deterministic."""
@@ -155,8 +122,4 @@ class MockNarrator:
         return [match_action(label, ctx.actions) for label in labels]
 
     def narrate(self, ctx: NarratorContext, commit: Commit) -> str:
-        opt = commit.chosen_option
-        quip = random.Random(commit.id).choice(QUIPS[commit.risk][ctx.lang])
-        return NARRATION[ctx.lang].format(
-            day=commit.day, label=opt.label, effects=format_effects(opt.effects, ctx.lang), quip=quip
-        )
+        return commentary(ctx, commit)

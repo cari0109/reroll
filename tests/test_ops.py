@@ -105,11 +105,11 @@ def test_repo_language_drives_narration():
     zh = ops.new_repo("test", PARAMS, date(2026, 10, 9), lang="zh")
     c = do_commit(zh)
     assert c.decision == "今晚去健身还是加班？"
-    assert "选手选择了" in c.narration and "精力" in c.narration
+    assert c.narration.startswith("Day 1，选手选择了「") and "the runner" not in c.narration
 
     en = do_commit(new_repo())
     assert en.decision == "Gym tonight, or stay late at work?"
-    assert "the runner picks" in en.narration and "energy" in en.narration
+    assert en.narration.startswith("Day 1: the runner picks") and "选手" not in en.narration
 
 
 def test_save_and_load_roundtrip(tmp_path):
