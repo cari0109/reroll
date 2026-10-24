@@ -8,8 +8,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, Field, model_validator
 
-from reroll.i18n import LocalizedText
-from reroll.models import StatBounds, StatName, State
+from reroll.i18n import LANGS, Lang, LocalizedText, t
+from reroll.models import STAT_NAMES, StatBounds, StatName, State
 
 DEFAULT_PARAMS_PATH = Path(__file__).with_name("params.yaml")
 
@@ -70,6 +70,42 @@ class Simulation(BaseModel):
     low_stat_rules: list[LowStatRule] = Field(default_factory=list)
 
 
+class CustomAction(BaseModel):
+    up: tuple[int, int]
+    down: tuple[int, int]
+
+    @model_validator(mode="after")
+    def _check_signs(self) -> CustomAction:
+        if not 0 < self.up[0] <= self.up[1] or not self.down[0] <= self.down[1] < 0:
+            raise ValueError("custom_action.up must be positive and down negative, each as [lo, hi]")
+        return self
+
+
+CUSTOM_PREFIX = "custom:"
+ARROW = {"+": "\u2191", "-": "\u2193"}
+
+
+def custom_action(directions: dict[StatName, str]) -> str:
+    """{'mood': '+', 'energy': '-'} -> 'custom:energy-,mood+' (stats in a fixed order)."""
+    parts = [f"{s}{directions[s]}" for s in STAT_NAMES if directions.get(s) in ("+", "-")]
+    if not parts:
+        raise ValueError("a custom action needs at least one stat going up or down")
+    return CUSTOM_PREFIX + ",".join(parts)
+
+
+def parse_custom(action: str) -> dict[StatName, str] | None:
+    """'custom:energy-,mood+' -> {'energy': '-', 'mood': '+'}; None if it isn't a valid custom action."""
+    if not action.startswith(CUSTOM_PREFIX):
+        return None
+    out: dict[StatName, str] = {}
+    for part in action[len(CUSTOM_PREFIX):].split(","):
+        stat, sign = part[:-1], part[-1:]
+        if stat not in STAT_NAMES or sign not in ("+", "-") or stat in out:
+            return None
+        out[stat] = sign  # type: ignore[index]
+    return out or None
+
+
 class Params(BaseModel):
     stats: dict[StatName, StatBounds]
     initial_state: State
@@ -77,6 +113,30 @@ class Params(BaseModel):
     daily_drift: dict[StatName, int] = Field(default_factory=dict)
     tags: dict[str, TagEffects]
     simulation: Simulation
+    custom_action: CustomAction
+
+    def is_action(self, name: str) -> bool:
+        return name in self.actions or parse_custom(name) is not None
+
+    def action(self, name: str) -> ActionSpec:
+        """The spec for a table action or a player-defined custom one."""
+        if name in self.actions:
+            return self.actions[name]
+        directions = parse_custom(name)
+        if directions is None:
+            raise KeyError(name)
+        ranges = {"+": self.custom_action.up, "-": self.custom_action.down}
+        arrows = {
+            lang: " ".join(f"{t(f'stat.{s}', lang)}{ARROW[d]}" for s, d in directions.items()) for lang in LANGS
+        }
+        return ActionSpec(
+            description=LocalizedText(en=f"Custom: {arrows['en']}", zh=f"自定义：{arrows['zh']}"),
+            effects={s: ranges[d] for s, d in directions.items()},
+            source="player-chosen directions; amounts from custom_action",
+        )
+
+    def describe(self, name: str, lang: Lang) -> str:
+        return self.action(name).description.get(lang)
 
     @model_validator(mode="after")
     def _check_references(self) -> Params:

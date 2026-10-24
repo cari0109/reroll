@@ -84,6 +84,10 @@ actions:
 # Without this, 6 of 8 actions drain energy and the simulation slides into exhaustion.
 daily_drift: { energy: 3, mood: -2, social: -1 }   # source: assumption (tuned so a mixed week is roughly flat)
 
+# Custom action type: when no type above fits, the player says which stats go up or down
+# ("custom:energy-,mood+"), and these ranges decide by how much. No habit tag.
+custom_action: { up: [2, 6], down: [-6, -2] }   # source: assumption (a moderate, everyday-sized effect)
+
 # History tags: the butterfly effect. Every tag attached by an action must be listed here.
 # carryover: stat change applied once per day while the tag is active, times its count
 #            (so two late nights in a row hurt twice as much).

@@ -214,3 +214,9 @@ th { color: var(--ink-3); font-weight: 500; }
 .restart { margin: 10px 0 0; color: var(--ink-2); font-size: 13px; }
 .own-row.needs-type select { border-color: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 25%, transparent); }
 .own-row.needs-type .k { color: var(--warn); }
+.dirs { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 2px 0 6px; }
+.dirs[hidden] { display: none; }
+.dir { border: 1px solid var(--hairline); background: var(--sky); color: var(--ink-3); border-radius: 999px; padding: 5px 10px; cursor: pointer; font: 500 12px/1 var(--f-data); }
+.dir[data-dir="+"] { color: var(--ink); border-color: var(--maybe); }
+.dir[data-dir="-"] { color: var(--ink); border-color: var(--warn); }
+.dirs-hint { font-size: 11px; color: var(--ink-3); }

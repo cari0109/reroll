@@ -11,9 +11,9 @@ from datetime import date
 
 from reroll import rules, sim
 from reroll.i18n import DEFAULT_LANG, Lang
-from reroll.models import Branch, Commit, Meta, Option, Repo, State, Tag
+from reroll.models import STAT_NAMES, Branch, Commit, Meta, Option, Repo, State, Tag
 from reroll.narrator import NarratorContext, OptionDraft
-from reroll.params import Params
+from reroll.params import Params, custom_action
 
 # Unicode word chars are allowed so branch names like "如果当初" work.
 BRANCH_NAME_RE = re.compile(r"^(?!-)[\w./-]{1,40}$")
@@ -229,9 +229,9 @@ def build_options(drafts: list[OptionDraft], params: Params, rng: random.Random)
     """Turn the narrator's drafts into options with numbers. Numbers come only from the action table."""
     options = []
     for i, d in enumerate(drafts):
-        if d.action not in params.actions:
+        if not params.is_action(d.action):
             raise ValueError(f"unknown action {d.action!r}")
-        effects = rules.clamp_effects(rules.roll_effects(params.actions[d.action], rng), params.stats)
+        effects = rules.clamp_effects(rules.roll_effects(params.action(d.action), rng), params.stats)
         options.append(Option(id=chr(ord("a") + i), label=d.label, action=d.action, effects=effects))
     return options
 
@@ -239,12 +239,22 @@ def build_options(drafts: list[OptionDraft], params: Params, rng: random.Random)
 MIN_OPTIONS, MAX_OPTIONS = 2, 4
 
 
+CUSTOM_SPEC = re.compile(r"^\s*([a-z]+[+-])(\s*,?\s*[a-z]+[+-])*\s*$")
+
+
 def parse_option_spec(spec: str, actions: dict | list) -> tuple[str, str | None]:
-    """'Go hiking:exercise' -> ('Go hiking', 'exercise'). The suffix counts only if it is a known
-    action type, so labels may contain colons ('6:30 run')."""
+    """'Go hiking:exercise' -> ('Go hiking', 'exercise'); 'Pet the cat:mood+,energy-' -> a custom
+    action. The suffix counts only if it is a known type or a valid stat list, so labels may
+    contain colons ('6:30 run')."""
     label, sep, maybe = spec.rpartition(":")
-    if sep and maybe.strip() in actions and label.strip():
-        return label.strip(), maybe.strip()
+    maybe = maybe.strip()
+    if sep and label.strip():
+        if maybe in actions:
+            return label.strip(), maybe
+        if CUSTOM_SPEC.match(maybe):
+            directions = dict(re.findall(r"([a-z]+)([+-])", maybe))
+            if set(directions) <= set(STAT_NAMES):  # every name must be a real stat
+                return label.strip(), custom_action(directions)
     return spec.strip(), None
 
 
@@ -282,7 +292,7 @@ def commit(repo: Repo, decision: str, options: list[Option], chosen: str, params
         current_state(repo), h.tags_active if h else [], day, params, repo.state_schema
     )
     state_after = rules.apply_effects(state, option.effects, repo.state_schema)
-    tags = rules.update_tags(active, params.actions[option.action], day)
+    tags = rules.update_tags(active, params.action(option.action), day)
     habits = action_history(repo) + Counter([option.action])
     outlook = sim.forecast(state_after, tags, day + 1, habits, params)
 
