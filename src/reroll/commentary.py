@@ -56,6 +56,10 @@ STREAK: dict[str, dict[Lang, list[str]]] = {
     "impulse_spent": {"en": ["Purchase number {n} this week. The cart remembers."], "zh": ["这周第 {n} 次剁手，购物车都记得。"]},
     "overtime": {"en": ["Overtime, round {n}. The office knows your name."], "zh": ["连续第 {n} 次加班，工位都认识你了。"]},
     "rested": {"en": ["Rest day number {n}. Recharging, or just comfy?"], "zh": ["连续第 {n} 次休息，是在充电还是在躺平？"]},
+    "tidied": {"en": ["Chores {n} days running. The apartment is suspicious."], "zh": ["连续第 {n} 天做家务，房间都开始怀疑人生了。"]},
+    "family_time": {"en": ["Family time, round {n}. Mom is thrilled."], "zh": ["第 {n} 次陪家人，爸妈很开心。"]},
+    "creative": {"en": ["Hobby streak: {n}. A craft is forming."], "zh": ["连续第 {n} 次玩爱好，手艺正在成型。"]},
+    "adventured": {"en": ["Outing number {n}. The map is getting smaller."], "zh": ["第 {n} 次出门探索，地图越来越小了。"]},
 }
 
 LOW: dict[Lang, list[str]] = {

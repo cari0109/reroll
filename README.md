@@ -87,7 +87,7 @@ flowchart LR
 ### The model, briefly
 
 - **Stats:** energy, mood, money (financial health, not an amount), social and goal, each 0–100.
-- **Actions:** 8 types (exercise, overtime, stay up, socialize, save, impulse buy, study, rest), each with an effect range per stat.
+- **Actions:** 12 types (exercise, overtime, stay up, socialize, save, impulse buy, study, rest, chores, family, hobby, outing), each with an effect range per stat.
 - **Habits:** actions leave tags. While a tag is active it has a daily aftershock (`late_night ×2` costs 6 energy) and makes the same action more likely in simulated futures.
 - **Daily drift:** you recover some energy overnight, while mood and social life fade a little unless you tend to them.
 - **Forecast:** 200 runs over 7 days. Each simulated day picks an action weighted by your own history on this branch, active habits, and low-stat rules (tired people rest). The risk rating is the share of futures where energy, mood, money or social drops below 20.

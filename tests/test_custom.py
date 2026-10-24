@@ -30,8 +30,12 @@ def ctx():
     [("去爬山", "exercise"), ("在家打游戏", "stay_up"), ("约朋友吃饭", "socialize"), ("cook dinner", "save_money"),
      ("practice piano", "study"), ("早点睡", "rest"), ("看电影", None),
      # labels from the live Claude comparison that keywords used to miss
-     ("给妈妈打电话", "socialize"), ("去图书馆自习", "study"), ("报名马拉松", "exercise"), ("去商场逛逛", "impulse_buy"),
-     ("call my mom", "socialize"), ("meal prep for the week", "save_money"), ("finish the quarterly report", "overtime")],
+     ("给妈妈打电话", "family"), ("去图书馆自习", "study"), ("报名马拉松", "exercise"), ("去商场逛逛", "impulse_buy"),
+     ("call my mom", "family"), ("meal prep for the week", "save_money"), ("finish the quarterly report", "overtime"),
+     # the four newer types
+     ("在家打扫卫生", "chores"), ("do the laundry", "chores"), ("陪爸妈吃饭", "family"), ("visit my grandparents", "family"),
+     ("画画", "hobby"), ("gardening", "hobby"), ("去海边旅行", "outing"), ("museum day", "outing"),
+     ("和朋友吃饭", "socialize")],
 )
 def test_mock_classify(label, action):
     assert MockNarrator().classify(ctx(), "q", [label]) == [action]
