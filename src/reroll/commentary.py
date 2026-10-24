@@ -103,7 +103,7 @@ def commentary(ctx: "NarratorContext", commit: Commit, params: Params | None = N
     beats: list[tuple[float, str]] = []
 
     # a habit that keeps coming back
-    for spec in params.actions[chosen.action].tags:
+    for spec in params.action(chosen.action).tags:
         tag = next((x for x in commit.tags_active if x.name == spec.name), None)
         if tag and tag.count >= 2 and spec.name in STREAK:
             beats.append((3 + tag.count, rng.choice(STREAK[spec.name][lang]).format(n=tag.count)))

@@ -285,7 +285,7 @@ def _note_fallback(narrator: Narrator, lang: Lang) -> None:
 def _print_options(options: list[Option], nctx: NarratorContext, guessed: set[str], lang: Lang) -> None:
     for o in options:
         mark = f" [dim italic]({t('custom.guessed', lang)})[/]" if o.id in guessed else ""
-        console.print(f"  [cyan]{o.id}[/]) {escape(o.label)}  [dim]{nctx.actions[o.action]}[/]{mark}")
+        console.print(f"  [cyan]{o.id}[/]) {escape(o.label)}  [dim]{default_params().describe(o.action, lang)}[/]{mark}")
 
 
 def _custom_decision(

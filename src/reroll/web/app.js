@@ -33,6 +33,8 @@ const T = {
     ownNote: "Write 2–4 options. The action type decides the numbers; leave it on auto and Reroll will guess. Short answers like \u201cyes\u201d and \u201cno\u201d are read against your question.",
     pickType: (n) => (n === 1 ? "Pick a type for the highlighted option: Reroll couldn't tell what it means." : "Pick a type for the highlighted options: Reroll couldn't tell what they mean."),
     needQ: "Write a question first.", needTwo: "Write at least two options.", guessed: "guessed",
+    custom: "Custom: pick stats…", dirsHint: "Tap a stat to cycle: up ↑, down ↓, off.",
+    needDir: (k) => `Option ${k}: pick at least one stat to go up or down.`,
   },
   zh: {
     legal: "仅供娱乐，不构成任何预测或建议。",
@@ -60,6 +62,8 @@ const T = {
     ownNote: "写 2–4 个选项。数值由行为类型决定；保持「自动识别」的话，系统会帮你猜。像「要」「不要」这样的简短回答，会结合题目来理解。",
     pickType: () => "请给标出来的选项选一个类型：系统看不出它是什么意思。",
     needQ: "先写一个题目。", needTwo: "至少写两个选项。", guessed: "自动识别",
+    custom: "自定义：选择指标…", dirsHint: "点指标切换：上升 ↑、下降 ↓、不变。",
+    needDir: (k) => `选项 ${k}：至少选一个上升或下降的指标。`,
   },
 };
 
@@ -597,6 +601,11 @@ async function checkout(name) {
 
 // ---- write your own decision
 const OWN_KEYS = ["a", "b", "c", "d"];
+const CUSTOM = "__custom__";
+function customAction(k) {
+  const parts = [...$(`ownD-${k}`).querySelectorAll(".dir")].filter((b) => b.dataset.dir).map((b) => b.dataset.stat + b.dataset.dir);
+  return parts.length ? `custom:${parts.join(",")}` : null;
+}
 function openOwn() {
   if (busy) return;
   const t = tr(), d = S.decision;
@@ -616,7 +625,22 @@ function openOwn() {
     sel.id = `ownA-${k}`; sel.setAttribute("aria-label", `${t.ownOptPh(k.toUpperCase())}: type`);
     h("option", null, t.auto, sel).value = "";
     for (const [name, desc] of Object.entries(S.actions)) h("option", null, desc, sel).value = name;
-    sel.value = prev && !prev.guessed ? prev.action : "";
+    h("option", null, t.custom, sel).value = CUSTOM;
+    const isCustom = prev && prev.action.startsWith("custom:");
+    sel.value = isCustom ? CUSTOM : prev && !prev.guessed ? prev.action : "";
+    // custom type: the player says which stats go up or down; the rules decide by how much
+    const dirs = h("div", "dirs", null, row);
+    dirs.id = `ownD-${k}`; dirs.hidden = !isCustom;
+    const preset = isCustom ? Object.fromEntries(prev.action.slice(7).split(",").map((p) => [p.slice(0, -1), p.slice(-1)])) : {};
+    for (const s of STATS) {
+      const b = h("button", "dir", null, dirs);
+      b.type = "button"; b.dataset.stat = s; b.dataset.dir = preset[s] || "";
+      const paint = () => { b.textContent = `${sname(s)} ${b.dataset.dir === "+" ? "↑" : b.dataset.dir === "-" ? "↓" : "·"}`; b.setAttribute("aria-label", `${sname(s)}: ${b.dataset.dir || "off"}`); };
+      paint();
+      b.addEventListener("click", () => { b.dataset.dir = { "": "+", "+": "-", "-": "" }[b.dataset.dir]; paint(); });
+    }
+    h("span", "dirs-hint", t.dirsHint, dirs);
+    sel.addEventListener("change", () => { dirs.hidden = sel.value !== CUSTOM; });
   });
   $("ownDialog").showModal();
   q.focus();
@@ -625,10 +649,15 @@ $("ownForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const t = tr(), err = $("ownError");
   const question = $("ownQ").value.trim();
-  const options = OWN_KEYS.map((k) => ({ label: $(`ownL-${k}`).value.trim(), action: $(`ownA-${k}`).value || null }))
-    .filter((o) => o.label);
+  const filled = OWN_KEYS.filter((k) => $(`ownL-${k}`).value.trim());
+  const missingDir = filled.find((k) => $(`ownA-${k}`).value === CUSTOM && !customAction(k));
+  const options = filled.map((k) => {
+    const sel = $(`ownA-${k}`).value;
+    return { label: $(`ownL-${k}`).value.trim(), action: sel === CUSTOM ? customAction(k) : sel || null };
+  });
   if (!question) { err.textContent = t.needQ; return; }
   if (options.length < 2) { err.textContent = t.needTwo; return; }
+  if (missingDir) { err.textContent = t.needDir(missingDir.toUpperCase()); $(`ownD-${missingDir}`).querySelector(".dir").focus(); return; }
   $("ownSubmit").disabled = true; err.textContent = "";
   for (const row of document.querySelectorAll(".own-row")) row.classList.remove("needs-type");
   try {

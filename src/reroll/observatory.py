@@ -208,7 +208,7 @@ class Observatory:
                         "id": o.id,
                         "label": o.label,
                         "action": o.action,
-                        "hint": pend.context.actions[o.action],
+                        "hint": p.describe(o.action, repo.meta.lang),
                         "guessed": o.id in pend.guessed,
                     }
                     for o in pend.options
@@ -266,7 +266,7 @@ class Observatory:
             lang, actions = repo.meta.lang, self.params.actions
             types = ", ".join(actions)
             for o in req.options:
-                if o.action is not None and o.action not in actions:
+                if o.action is not None and not self.params.is_action(o.action):
                     raise ObservatoryError(400, t("custom.bad_type", lang, action=o.action, types=types))
             ctx = ops.narrator_context(repo, self.params)
             missing = [i for i, o in enumerate(req.options) if o.action is None]

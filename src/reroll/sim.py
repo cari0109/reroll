@@ -81,7 +81,7 @@ def simulate_day(
     if action_name is None:
         weights = action_weights(state, tags, history, params)
         action_name = rng.choices(list(weights), weights=list(weights.values()))[0]
-    action = params.actions[action_name]
+    action = params.action(action_name)
     state = rules.apply_effects(state, rules.roll_effects(action, rng), params.stats)
     return state, rules.update_tags(tags, action, day)
 
