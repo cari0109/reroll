@@ -68,11 +68,15 @@ KEYWORDS: dict[str, re.Pattern[str]] = {
         "exercise": r"健身|运动|跑步|锻炼|散步|爬山|游泳|瑜伽|骑车|打球|马拉松|\b(gym|work ?out|exercis(e|ing)|run(ning)?|jog(ging)?|walk(ing)?|hik(e|ing)|swim(ming)?|yoga|bik(e|ing)|cycling)\b",
         "overtime": r"加班|工作|项目上线|开会|多干|延长|\b(overtime|work(ing)? (late|tonight|more|longer|extra)|extend(ed)? (work|hours)|extra work|deadline|meeting|report)\b",
         "stay_up": r"熬夜|游戏|追剧|刷手机|再看|\b(stay(ing)? up|all-nighter|games?|gaming|binge|one more episode|scroll(ing)?)\b",
-        "socialize": r"聚|朋友|约|饭局|社交|吃饭|同事|电话|家人|爸妈|妈妈|KTV|\b(friends?|party|hang ?out|drinks|call (my )?(mom|dad|parents|family))\b",
+        "family": r"家人|爸妈|妈妈|爸爸|父母|爷爷|奶奶|回家吃饭|视频通话|\b(family|parents|mom|dad|grand(ma|pa|parents)|call (my )?(mom|dad|parents|family))\b",
+        "socialize": r"聚|朋友|约|饭局|社交|吃饭|同事|电话|KTV|\b(friends?|party|hang ?out|drinks)\b",
         "impulse_buy": r"买|购|下单|剁手|逛街|商场|\b(buy|shop(ping)?|order|sale|splurge)\b",
         "save_money": r"省|存钱|攒|做饭|带饭|\b(sav(e|ing)|budget|cook(ing)?|meal prep)\b",
         "study": r"学|读书|看书|课|刷题|练琴|吉他|写代码|编程|自习|图书馆|\b(study|learn(ing)?|read(ing)?|course|leetcode|side project|practi[cs]e|code|coding)\b",
         "rest": r"睡|休息|躺|宅|放松|\b(sleep(ing)?|rest|nap|relax|chill|stay home)\b",
+        "chores": r"家务|打扫|收拾|整理|洗衣|洗碗|拖地|跑腿|办事|\b(chores?|clean(ing| up)?|laundry|tidy|dishes|vacuum|errands?)\b",
+        "hobby": r"画画|绘画|手工|拼图|摄影|拍照|唱歌|跳舞|养花|种花|插花|\b(draw(ing)?|paint(ing)?|crafts?|photograph(y|ing)?|knit(ting)?|hobby|garden(ing)?|sing(ing)?|danc(e|ing))\b",
+        "outing": r"旅行|旅游|出游|郊游|自驾|露营|海边|逛公园|看展|博物馆|探店|\b(trip|travel(l?ing)?|road ?trip|camping|explor(e|ing)|beach|museum|gallery)\b",
     }.items()
 }
 
@@ -91,6 +95,7 @@ NO = re.compile(r"^\s*(no|nope|nah|not now|skip( it)?|pass|don'?t|no way|"
 OPPOSITE = {
     "overtime": "rest", "stay_up": "rest", "socialize": "rest", "exercise": "rest", "study": "rest",
     "impulse_buy": "save_money", "save_money": "impulse_buy", "rest": "stay_up",
+    "chores": "rest", "family": "rest", "hobby": "rest", "outing": "rest",
 }
 
 
@@ -137,6 +142,10 @@ LABELS: dict[str, LocalizedText] = {
     "impulse_buy": _lt("Treat yourself", "买买买"),
     "study": _lt("Study", "学习"),
     "rest": _lt("Get some rest", "好好休息"),
+    "chores": _lt("Get chores done", "把家务做了"),
+    "family": _lt("Time with family", "陪陪家人"),
+    "hobby": _lt("Do your hobby", "玩玩爱好"),
+    "outing": _lt("Head out somewhere", "出门走走"),
 }
 
 class MockNarrator:
