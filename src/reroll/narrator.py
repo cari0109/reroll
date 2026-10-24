@@ -66,7 +66,7 @@ KEYWORDS: dict[str, re.Pattern[str]] = {
     action: re.compile(pattern, re.IGNORECASE)
     for action, pattern in {
         "exercise": r"健身|运动|跑步|锻炼|散步|爬山|游泳|瑜伽|骑车|打球|马拉松|\b(gym|work ?out|exercis(e|ing)|run(ning)?|jog(ging)?|walk(ing)?|hik(e|ing)|swim(ming)?|yoga|bik(e|ing)|cycling)\b",
-        "overtime": r"加班|工作|项目上线|开会|\b(overtime|work late|extra work|deadline|meeting|report)\b",
+        "overtime": r"加班|工作|项目上线|开会|多干|延长|\b(overtime|work(ing)? (late|tonight|more|longer|extra)|extend(ed)? (work|hours)|extra work|deadline|meeting|report)\b",
         "stay_up": r"熬夜|游戏|追剧|刷手机|再看|\b(stay(ing)? up|all-nighter|games?|gaming|binge|one more episode|scroll(ing)?)\b",
         "socialize": r"聚|朋友|约|饭局|社交|吃饭|同事|电话|家人|爸妈|妈妈|KTV|\b(friends?|party|hang ?out|drinks|call (my )?(mom|dad|parents|family))\b",
         "impulse_buy": r"买|购|下单|剁手|逛街|商场|\b(buy|shop(ping)?|order|sale|splurge)\b",
@@ -79,6 +79,53 @@ KEYWORDS: dict[str, re.Pattern[str]] = {
 def match_action(text: str, allowed: dict[str, str] | list[str]) -> str | None:
     """First action whose keywords appear in `text`, or None."""
     return next((a for a, pat in KEYWORDS.items() if a in allowed and pat.search(text)), None)
+
+
+# Short answers to the question itself ("Work overtime tonight?" -> "yes" / "no").
+_END = r"\s*[!！.。~～]*\s*$"
+YES = re.compile(r"^\s*(yes|yeah|yep|yup|sure|ok(ay)?|do it|of course|why not|let'?s go|"
+                 r"要|好|好的|行|可以|是|嗯|加|去|当然|必须|冲)" + _END, re.IGNORECASE)
+NO = re.compile(r"^\s*(no|nope|nah|not now|skip( it)?|pass|don'?t|no way|"
+                r"不|不要|不用|不了|算了|不加|不去|拒绝|不行|下次吧|改天|改天吧)" + _END, re.IGNORECASE)
+# What "no" usually means when the question is about doing X.
+OPPOSITE = {
+    "overtime": "rest", "stay_up": "rest", "socialize": "rest", "exercise": "rest", "study": "rest",
+    "impulse_buy": "save_money", "save_money": "impulse_buy", "rest": "stay_up",
+}
+
+
+NEGATED = re.compile(r"^\s*(不要|不|别|没|don'?t\b|do not\b|no\b|not\b|skip\b)", re.IGNORECASE)
+
+
+def fill_short_answers(labels: list[str], actions: list[str | None], allowed: dict[str, str] | list[str]) -> list[str | None]:
+    """Use the other options as context: if "yes" is overtime, "no" means not doing it."""
+    out = list(actions)
+    yes_topic = next((a for label, a in zip(labels, out) if a and YES.match(label)), None)
+    for i, label in enumerate(labels):
+        if out[i] is None and yes_topic and NO.match(label):
+            opposite = OPPOSITE.get(yes_topic)
+            out[i] = opposite if opposite in allowed else None
+    return out
+
+
+def classify_label(label: str, decision: str, allowed: dict[str, str] | list[str]) -> str | None:
+    """Keywords in the label first ("不买" / "no gym" flip to the opposite); a bare yes/no is
+    read against what the question asks."""
+    action = match_action(label, allowed)
+    if action is not None:
+        if NEGATED.match(label):
+            opposite = OPPOSITE.get(action)
+            return opposite if opposite in allowed else None
+        return action
+    topic = match_action(decision, allowed)
+    if topic is None:
+        return None
+    if NO.match(label):
+        opposite = OPPOSITE.get(topic)
+        return opposite if opposite in allowed else None
+    if YES.match(label):
+        return topic
+    return None
 
 
 LABELS: dict[str, LocalizedText] = {
@@ -119,7 +166,7 @@ class MockNarrator:
         )
 
     def classify(self, ctx: NarratorContext, decision: str, labels: list[str]) -> list[str | None]:
-        return [match_action(label, ctx.actions) for label in labels]
+        return [classify_label(label, decision, ctx.actions) for label in labels]
 
     def narrate(self, ctx: NarratorContext, commit: Commit) -> str:
         return commentary(ctx, commit)

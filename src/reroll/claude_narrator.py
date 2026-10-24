@@ -85,7 +85,9 @@ Context before this choice:
 CLASSIFY_TASK = """\
 The player wrote their own decision and options. For each option, pick the action type from the \
 table below that best describes what the player would actually be doing. Return one action per \
-option, in the same order. Options may share an action type.
+option, in the same order. Options may share an action type. Short answers such as "yes", \
+"no", "要" or "不要" answer the decision itself: classify what the player would actually be \
+doing in that case (for "Work overtime tonight?", "yes" is overtime and "no" is going home to rest).
 
 Decision: {decision}
 Options:

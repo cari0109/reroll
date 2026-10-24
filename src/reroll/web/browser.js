@@ -35,7 +35,7 @@ def call(method, route, payload):
     try:
         return json.dumps(OBS.dispatch(method, route, json.loads(payload) if payload else None))
     except ObservatoryError as e:
-        return json.dumps({"__error__": e.status, "detail": e.detail})
+        return json.dumps({"__error__": e.status, "detail": e.detail, **e.extra})
 
 def saved():
     return PATH.read_text()
@@ -75,7 +75,7 @@ def saved():
     await ready;
     const method = body ? "POST" : "GET";
     const res = JSON.parse(py.globals.get("call")(method, path, body ? JSON.stringify(body) : null));
-    if (res.__error__) throw new Error(res.detail);
+    if (res.__error__) throw Object.assign(new Error(res.detail), res);
     if (method === "POST") store.set(py.globals.get("saved")());
     return res;
   };

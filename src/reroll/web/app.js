@@ -30,7 +30,8 @@ const T = {
     writeOwn: "✎ Write your own", resetOwn: "↺ Back to today's prompt",
     ownTitle: "Your own decision", ownQ: "Question", ownQPh: "e.g. How should I spend tonight?",
     ownOptPh: (k) => `Option ${k}`, auto: "Auto-detect type", cancel: "Cancel", ownSubmit: "Set as today's decision",
-    ownNote: "Write 2–4 options. The action type decides the numbers; leave it on auto and Reroll will guess.",
+    ownNote: "Write 2–4 options. The action type decides the numbers; leave it on auto and Reroll will guess. Short answers like \u201cyes\u201d and \u201cno\u201d are read against your question.",
+    pickType: (n) => (n === 1 ? "Pick a type for the highlighted option: Reroll couldn't tell what it means." : "Pick a type for the highlighted options: Reroll couldn't tell what they mean."),
     needQ: "Write a question first.", needTwo: "Write at least two options.", guessed: "guessed",
   },
   zh: {
@@ -56,7 +57,8 @@ const T = {
     writeOwn: "✎ 自己出题", resetOwn: "↺ 换回系统出的题",
     ownTitle: "自己出题", ownQ: "题目", ownQPh: "例如：今晚怎么过？",
     ownOptPh: (k) => `选项 ${k}`, auto: "自动识别类型", cancel: "取消", ownSubmit: "设为今天的决定",
-    ownNote: "写 2–4 个选项。数值由行为类型决定；保持「自动识别」的话，系统会帮你猜。",
+    ownNote: "写 2–4 个选项。数值由行为类型决定；保持「自动识别」的话，系统会帮你猜。像「要」「不要」这样的简短回答，会结合题目来理解。",
+    pickType: () => "请给标出来的选项选一个类型：系统看不出它是什么意思。",
     needQ: "先写一个题目。", needTwo: "至少写两个选项。", guessed: "自动识别",
   },
 };
@@ -101,7 +103,7 @@ async function api(path, body) {
   if (window.rerollApi) return window.rerollApi(path, body); // static demo: Python runs in this tab
   const res = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || `${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(data.detail || `${res.status}`), data);
   return data;
 }
 
@@ -628,12 +630,18 @@ $("ownForm").addEventListener("submit", async (e) => {
   if (!question) { err.textContent = t.needQ; return; }
   if (options.length < 2) { err.textContent = t.needTwo; return; }
   $("ownSubmit").disabled = true; err.textContent = "";
+  for (const row of document.querySelectorAll(".own-row")) row.classList.remove("needs-type");
   try {
     setState(await api("/api/decision", { question, options }));
     $("ownDialog").close();
     hoverOpt = null; renderAll();
   } catch (ex) {
-    err.textContent = ex.message;
+    // point at the exact rows that need a type instead of a generic error
+    const unknown = Array.isArray(ex.unknown) ? ex.unknown : [];
+    const rows = OWN_KEYS.filter((k) => unknown.includes($(`ownL-${k}`).value.trim()));
+    rows.forEach((k) => $(`ownL-${k}`).closest(".own-row").classList.add("needs-type"));
+    err.textContent = rows.length ? t.pickType(rows.length) : ex.message;
+    if (rows.length) $(`ownA-${rows[0]}`).focus();
   } finally {
     $("ownSubmit").disabled = false;
   }
