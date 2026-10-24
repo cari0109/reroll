@@ -66,7 +66,7 @@ KEYWORDS: dict[str, re.Pattern[str]] = {
     action: re.compile(pattern, re.IGNORECASE)
     for action, pattern in {
         "exercise": r"健身|运动|跑步|锻炼|散步|爬山|游泳|瑜伽|骑车|打球|马拉松|\b(gym|work ?out|exercis(e|ing)|run(ning)?|jog(ging)?|walk(ing)?|hik(e|ing)|swim(ming)?|yoga|bik(e|ing)|cycling)\b",
-        "overtime": r"加班|工作|项目上线|开会|\b(overtime|work late|extra work|deadline|meeting|report)\b",
+        "overtime": r"加班|工作|项目上线|开会|多干|延长|\b(overtime|work(ing)? (late|tonight|more|longer|extra)|extend(ed)? (work|hours)|extra work|deadline|meeting|report)\b",
         "stay_up": r"熬夜|游戏|追剧|刷手机|再看|\b(stay(ing)? up|all-nighter|games?|gaming|binge|one more episode|scroll(ing)?)\b",
         "socialize": r"聚|朋友|约|饭局|社交|吃饭|同事|电话|家人|爸妈|妈妈|KTV|\b(friends?|party|hang ?out|drinks|call (my )?(mom|dad|parents|family))\b",
         "impulse_buy": r"买|购|下单|剁手|逛街|商场|\b(buy|shop(ping)?|order|sale|splurge)\b",
@@ -95,6 +95,17 @@ OPPOSITE = {
 
 
 NEGATED = re.compile(r"^\s*(不要|不|别|没|don'?t\b|do not\b|no\b|not\b|skip\b)", re.IGNORECASE)
+
+
+def fill_short_answers(labels: list[str], actions: list[str | None], allowed: dict[str, str] | list[str]) -> list[str | None]:
+    """Use the other options as context: if "yes" is overtime, "no" means not doing it."""
+    out = list(actions)
+    yes_topic = next((a for label, a in zip(labels, out) if a and YES.match(label)), None)
+    for i, label in enumerate(labels):
+        if out[i] is None and yes_topic and NO.match(label):
+            opposite = OPPOSITE.get(yes_topic)
+            out[i] = opposite if opposite in allowed else None
+    return out
 
 
 def classify_label(label: str, decision: str, allowed: dict[str, str] | list[str]) -> str | None:

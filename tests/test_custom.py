@@ -201,3 +201,27 @@ def test_api_reports_which_options_need_a_type(client):
     body = {"question": "Movie night?", "options": [{"label": "yes"}, {"label": "Nap"}, {"label": "no"}]}
     r = c.post("/api/decision", json=body)
     assert r.status_code == 400 and r.json()["unknown"] == ["yes", "no"]
+
+
+def test_no_follows_a_yes_whose_type_is_known(client):
+    """"Should I extend work tonight?" with yes set to overtime by hand: no should be rest."""
+    c, _ = client
+    body = {"question": "Should I stay a bit longer?", "options": [{"label": "yes", "action": "overtime"}, {"label": "no"}]}
+    d = c.post("/api/decision", json=body).json()["decision"]
+    assert [(o["action"], o["guessed"]) for o in d["options"]] == [("overtime", False), ("rest", True)]
+
+
+def test_extend_work_reads_as_overtime():
+    from reroll.narrator import classify_label
+
+    assert classify_label("no", "should i extend work tonight", PARAMS.actions) == "rest"
+    assert classify_label("yes", "Working late again?", PARAMS.actions) == "overtime"
+    assert classify_label("yes", "Work out tonight?", PARAMS.actions) == "exercise"  # not overtime
+
+
+def test_cli_no_follows_explicit_yes(tmp_path):
+    path = tmp_path / "life.json"
+    run(path, "init")
+    r = run(path, "commit", "Stay a bit longer?", "-o", "yes:overtime", "-o", "no", "-c", "b")
+    assert r.exit_code == 0, r.output
+    assert [o.action for o in load_repo(path).commits[0].options] == ["overtime", "rest"]

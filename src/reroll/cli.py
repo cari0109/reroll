@@ -19,7 +19,7 @@ from reroll import graph, ops, rules, sim
 from reroll.i18n import DEFAULT_LANG, LANGS, Lang, t
 from reroll.models import STAT_NAMES, Commit, Option, Repo, State, Tag
 from reroll.claude_narrator import make_narrator
-from reroll.narrator import Narrator, NarratorContext, OptionDraft, format_effects
+from reroll.narrator import Narrator, NarratorContext, OptionDraft, fill_short_answers, format_effects
 from reroll.params import default_params
 from reroll.storage import DEFAULT_FILE, RepoCorrupt, RepoNotFound, load_repo, save_repo
 
@@ -308,6 +308,10 @@ def _custom_decision(
         _note_fallback(narrator, lang)
 
     types = list(params.actions)
+    known = fill_short_answers(
+        [label for label, _ in parsed], [action or guesses.get(i) for i, (_, action) in enumerate(parsed)], types
+    )
+    guesses.update({i: a for i, a in enumerate(known) if i in missing and a})
     drafts, guessed = [], set()
     for i, (label, action) in enumerate(parsed):
         if action is None:

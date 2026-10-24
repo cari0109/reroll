@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, ValidationError
 from reroll import ops, rules
 from reroll.i18n import t
 from reroll.models import STAT_NAMES, Commit, Option, Repo
-from reroll.narrator import Narrator, NarratorContext, OptionDraft
+from reroll.narrator import Narrator, NarratorContext, OptionDraft, fill_short_answers
 from reroll.params import Params, default_params
 from reroll.sim import RISK_STATS, Forecast
 from reroll.storage import RepoCorrupt, RepoNotFound, load_repo, save_repo
@@ -271,7 +271,10 @@ class Observatory:
             ctx = ops.narrator_context(repo, self.params)
             missing = [i for i, o in enumerate(req.options) if o.action is None]
             guesses = dict(zip(missing, self.narrator.classify(ctx, req.question, [req.options[i].label for i in missing])))
-            unknown = [o.label for i, o in enumerate(req.options) if not (o.action or guesses.get(i))]
+            known = [o.action or guesses.get(i) for i, o in enumerate(req.options)]
+            known = fill_short_answers([o.label for o in req.options], known, actions)
+            guesses.update({i: a for i, a in enumerate(known) if i in missing and a})
+            unknown = [o.label for i, o in enumerate(req.options) if not known[i]]
             if unknown:
                 raise ObservatoryError(400, t("custom.unknown", lang, label=unknown[0], types=types), unknown=unknown)
             drafts = [
